@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "track-sprint-ai"
+version = "0.1.0"
+description = "Evidence-grounded sprint video review with explicit 2D measurement limits"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "streamlit>=1.63,<2", "mediapipe==0.10.35",
+  "opencv-contrib-python>=4.10,<6", "av>=14,<19", "numpy>=2,<3",
+  "scipy>=1.14,<2", "plotly>=6,<8", "pydantic>=2.10,<3",
+  "openai>=2,<4", "python-dotenv>=1,<2", "imageio-ffmpeg>=0.6,<1"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+track_sprint = ["data/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,11 @@
+{
+  "version": "2026-09-09.1",
+  "description": "Conservative coaching prompts for discussion with a coach. These are editorial suggestions, not validated corrections for measured angles. No dosage or loading prescriptions.",
+  "activities": [
+    {"id": "cue-whole-stride", "kind": "cue", "title": "Watch the whole stride", "text": "Review the thigh moving forward and returning beneath the body across consecutive frames. Avoid changing your technique to match a single still image.", "topics": ["thigh", "hip", "knee"]},
+    {"id": "cue-relaxed-posture", "kind": "cue", "title": "Review posture with your coach", "text": "Compare the shoulder-to-hip line across the passage. Ask your coach whether the view is sufficiently side-on before discussing a posture change.", "topics": ["trunk", "hip"]},
+    {"id": "drill-march", "kind": "drill", "title": "Controlled sprint march", "text": "If familiar and comfortable, use a relaxed march to explore alternating leg positions with your coach. Treat it as coordination practice, not a proven fix for this recording.", "topics": ["hip", "thigh", "knee"]},
+    {"id": "exercise-step-up", "kind": "exercise", "title": "Discuss step-ups", "text": "Ask your coach whether a comfortable, controlled step-up belongs in your existing strength plan. This suggestion does not indicate a weak muscle or specify a load.", "topics": ["hip", "knee"]},
+    {"id": "exercise-squat", "kind": "exercise", "title": "Discuss squat practice", "text": "Ask your coach whether familiar, comfortable squat practice belongs in your existing training. Video angles alone cannot determine exercise selection, loading, or readiness.", "topics": ["hip", "knee"]}
+  ]
+}

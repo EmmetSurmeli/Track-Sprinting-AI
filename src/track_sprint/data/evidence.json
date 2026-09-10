@@ -1,0 +1,78 @@
+{
+  "version": "2026-09-09.1",
+  "description": "Manually reviewed research summaries, not quotations. These studies do not validate this app or establish ideal sprint angles.",
+  "sources": [
+    {
+      "id": "wade-2023",
+      "title": "Examination of 2D frontal and sagittal markerless motion capture: Implications for markerless applications",
+      "authors": "Wade et al.", "year": 2023,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/37943887/",
+      "doi": "10.1371/journal.pone.0293917",
+      "type": "Peer-reviewed measurement study", "location": "Abstract",
+      "population": "Fifteen healthy adults walking; OpenPose compared with marker-based motion capture.",
+      "summary": "In sagittal recordings, occlusion substantially affected hip and knee estimates on the camera-far side. Visible-side measurements were more dependable in this setting.",
+      "limitations": "Walking and OpenPose results do not establish the accuracy of MediaPipe during sprinting. Visibility scores are not calibrated angle-error estimates.",
+      "topics": ["knee", "hip", "trunk", "thigh", "visibility"]
+    },
+    {
+      "id": "haugen-2018-front",
+      "title": "On the Importance of 'Front-Side Mechanics' in Athletics Sprinting",
+      "authors": "Haugen et al.", "year": 2018,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/28872386/",
+      "doi": "10.1123/ijspp.2016-0812",
+      "type": "Peer-reviewed observational study", "location": "Abstract",
+      "population": "Twenty-four competitive sprinters measured using high-speed three-dimensional motion capture.",
+      "summary": "Some front-side and back-side variables were associated with acceleration performance. The study did not find significant associations between those variables and maximum-velocity performance.",
+      "limitations": "Associations do not identify a universal ideal technique or show that changing an observed angle improves an individual athlete's speed. Sprint phase matters.",
+      "topics": ["hip", "knee", "thigh", "phase"]
+    },
+    {
+      "id": "clark-2020",
+      "title": "'Whip from the hip': thigh angular motion, ground contact mechanics, and running speed",
+      "authors": "Clark, Meng and Stearne", "year": 2020,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/32917763/",
+      "doi": "10.1242/bio.053546",
+      "type": "Peer-reviewed observational study", "location": "Abstract",
+      "population": "Forty participants with varied athletic backgrounds performing running trials across a range of speeds.",
+      "summary": "Thigh angular motion was associated with running speed across trials. The study supports examining thigh motion over a stride rather than judging a single pose in isolation.",
+      "limitations": "The app does not measure thigh angular velocity or ground reaction forces. An observed thigh-angle range cannot establish speed, force, or a causal performance deficit.",
+      "topics": ["thigh", "hip", "cycle"]
+    },
+    {
+      "id": "garrido-2024",
+      "title": "VideoRun2D: Cost-Effective Markerless Motion Capture for Sprint Biomechanics",
+      "authors": "Garrido-Lopez et al.", "year": 2024,
+      "url": "https://arxiv.org/abs/2409.10175",
+      "doi": null,
+      "type": "Workshop research preprint", "location": "Abstract",
+      "population": "Forty sprint recordings from five subjects; an adapted MoveNet system compared with manual annotation.",
+      "summary": "A specialized markerless sprint system was evaluated against manual trunk, hip and knee annotation. This illustrates the importance of checking a model against a defined reference task.",
+      "limitations": "The evaluated system and validation are different from this app's unmodified MediaPipe model. Its reported accuracy must not be claimed for Track Sprint AI.",
+      "topics": ["knee", "hip", "trunk", "validation"]
+    },
+    {
+      "id": "appleby-2020",
+      "title": "Unilateral and Bilateral Lower-Body Resistance Training Does not Transfer Equally to Sprint and Change of Direction Performance",
+      "authors": "Appleby, Cormack and Newton", "year": 2020,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/30844983/",
+      "doi": "10.1519/JSC.0000000000003035",
+      "type": "Peer-reviewed training study", "location": "Abstract",
+      "population": "Thirty-three trained participants in a supervised resistance-training intervention.",
+      "summary": "Both squat and step-up training groups improved sprint performance, with an unclear difference between the groups for sprint outcomes.",
+      "limitations": "This does not show that a specific exercise will correct a video-derived joint angle. The app cannot infer a strength deficit or prescribe the study's program from footage.",
+      "topics": ["knee", "hip", "strength"]
+    },
+    {
+      "id": "haugen-2018-asymmetry",
+      "title": "Kinematic stride cycle asymmetry is not associated with sprint performance and injury prevalence in athletic sprinters",
+      "authors": "Haugen et al.", "year": 2018,
+      "url": "https://onlinelibrary.wiley.com/doi/abs/10.1111/sms.12953",
+      "doi": "10.1111/sms.12953",
+      "type": "Peer-reviewed observational study", "location": "Abstract",
+      "population": "Competitive sprinters assessed during flying sprint trials.",
+      "summary": "The study did not find an association between measured stride-cycle asymmetry and sprint performance or injury prevalence in its sample.",
+      "limitations": "This does not prove that every asymmetry is harmless. A single oblique video cannot establish an anatomical imbalance, weakness, or injury risk.",
+      "topics": ["knee", "hip", "thigh", "asymmetry"]
+    }
+  ]
+}

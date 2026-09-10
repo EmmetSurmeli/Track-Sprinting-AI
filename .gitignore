@@ -1,0 +1,17 @@
+.venv/
+.env
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.DS_Store
+models/
+artifacts/
+dist/
+build/
+*.mov
+*.MOV
+*.mp4
+*.npz
+
