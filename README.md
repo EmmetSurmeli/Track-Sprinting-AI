@@ -29,6 +29,7 @@ For editable development, use `python -m pip install -e '.[dev]'`. The entry poi
 2. Select a short interval, up to ten **decoded media seconds**. Slow-motion phone files can have different decoder and player timelines. Start/middle/end previews show the actual selected source frames.
 3. Set travel direction and, if known, the athlete's camera-facing anatomical side. Leave the side unknown when unsure. Mark camera movement honestly.
 4. Analyze. Review the original and annotated passage, scrub frames, and open the motion curves. Gray joints fail visibility checks; missing measurements stay missing.
+   Completed analyses are automatically saved to **Calendar & progress**, using today's date or the recording date you select. Add session notes or coach feedback, browse any month/year, reopen saved analyses and compare with previous sessions. An existing result can be added with **Save to calendar**.
 5. Enter an API key privately, fill in your profile, and select **Generate coaching**. Inspect the cited frames and research caveats before using any suggestions.
 6. Download the annotated MP4, measurement JSON, coaching Markdown, or analysis ZIP.
 
@@ -53,7 +54,9 @@ No report is fabricated when the API is unavailable. Cached reports retain real 
 
 Pose inference, original footage, extracted frames and landmarks stay local. Only the computed summary, optional athlete profile and selected research summaries are sent to OpenAI when generation is requested. The request sets `store=False`; this does not imply zero provider retention. [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data).
 
-The key and the input profile are excluded from saved reports and downloads. Generated prose could still reflect information supplied in the profile; review exports before sharing. Derived artifacts live in `artifacts/`. **Clear this session** removes this app session's local files, not separately downloaded exports or saved demo artifacts. Expired session directories are cleaned when a later session starts. This is an ordinary filesystem deletion, not a secure-erasure guarantee.
+The key and the input profile are excluded from saved reports and downloads. Generated prose could still reflect information supplied in the profile; review exports before sharing. Derived artifacts live in `artifacts/`. **Clear this session** removes temporary browser-session files. Your calendar, session notes and archived analysis passages persist under `artifacts/history/`, separate from temporary cleanup, saved demo artifacts and downloaded exports. Expired temporary directories are cleaned when a later session starts. This is an ordinary filesystem deletion, not a secure-erasure guarantee.
+
+The calendar is one local training log for the same athlete; it does not identify people across uploads. Re-saving the same analysis updates its date/title/notes instead of adding duplicates. Date changes reorder the history. Comparisons show observed minimum/maximum angle differences and trends, with no automatic better/worse score: angle changes can reflect camera viewpoint, selected sprint phase or pose error. Event, side, processing method and visibility checks restrict comparisons. Camera-relative orientation metrics are omitted from comparisons when either camera moves. Export the training log as JSON from the calendar page.
 
 ## Verify the code
 
@@ -79,6 +82,8 @@ src/track_sprint/
   schemas.py                   Typed contracts
   charts.py                    Frame-linked Plotly curves
   artifacts.py                 Hashes, atomic JSON writes, scoped cleanup
+  history.py                   Durable SQLite training log and comparison rules
+  calendar_ui.py               Month view, dated notes, saved results and trends
   data/                        Six reviewed research summaries and activity catalog
 scripts/                       CLI analysis, decoding inspection, artifact verification
 tests/                         Offline unit/integration tests

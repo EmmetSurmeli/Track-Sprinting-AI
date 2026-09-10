@@ -54,6 +54,14 @@ UI sessions have independent random directories. Uploaded filenames are never us
 
 The local pose worker runs in a subprocess with a five-minute timeout. This protects Streamlit from a native model crash; it is not a security sandbox for untrusted media. Limits of 100 MB, 4K, two-minute source duration, ten-second selected passages and 3,600 selected frames bound the normal path. A 24-hour inactivity cleanup runs on new session creation. There is no background cloud storage or user account system.
 
+## Calendar and progress log
+
+Successful UI analyses automatically archive their derived result into `artifacts/history/analyses/<analysis_id>/` and insert a row into a local SQLite database. The recording date defaults to today and can be changed before analysis or later in the calendar. This is distinct from the immutable UTC creation timestamp. Titles, event and optional notes are stored with the entry. Identical analysis IDs update metadata instead of creating duplicate training sessions. Files are copied through a staging directory before inserting the database row; an incomplete archive does not appear as a completed log entry.
+
+History is separate from temporary browser sessions and survives Clear this session, restarts and temporary-file cleanup. No additional API call is made for logging or comparisons. The original full upload and secrets are not archived; derived original/annotated passages, pose arrays, frames and generated reports are retained. History stays Git-ignored. `TRACK_SPRINT_HISTORY_DIR` can override the local history directory; tests use an isolated temporary store.
+
+The calendar supports month/year navigation, multiple analyses on one date, date/title/notes editing and reopening saved artifacts. Prior-session comparisons require matching event, model side, model/pipeline/dependency versions and visibility threshold. Each metric needs at least 85% coverage in both results; camera-relative orientation is excluded if either camera moves. Unknown anatomical side and reused source videos carry explicit caveats. Date-ordered trends show observed knee/hip extrema, preserving excluded readings as gaps. Numeric deltas are descriptive and never labeled improved or worse; consistent recording conditions and coach review remain necessary. There is one athlete's log per workspace, without identity matching or clinical outcome tracking.
+
 ## Decisions
 
 | Choice | Reason | Alternative / cost |

@@ -6,7 +6,8 @@ The local analysis and review workflow works on the author's actual demonstratio
 
 | Check | Evidence | What it establishes |
 | --- | --- | --- |
-| Offline test suite | 31 tests passed on the local Python 3.13 environment | Geometry, visibility gaps, timestamp handling, export consistency, scoped cleanup, failed-run completion markers, report guards, SDK serialization and core Streamlit rendering behave as tested |
+| Offline test suite | 41 tests passed on the local Python 3.13 environment | Geometry, visibility gaps, timestamp handling, export consistency, scoped cleanup, failed-run completion markers, report guards, SDK serialization, calendar persistence/comparison rules and core Streamlit rendering behave as tested |
+| Calendar workflow | Save existing analysis, edit its date into another month, reopen it, then clear the temporary session; saved entry remains | Persistent date-based history is independent of browser session cleanup; duplicate IDs update metadata |
 | Real clip decoding | HEVC, 1920×1080; 800 decodable frames in the full source | PyAV can read the supplied MOV; nominal metadata frame counts are not treated as actual decoded counts |
 | Real selected passage | 2.55–3.20 decoded seconds, source frames 436–549, 114 processed frames | Actual pretrained-model inference and deterministic calculations completed on the user-provided video |
 | Coverage | Model-left knee and trunk–thigh metrics: 114/114 valid frames; no subject-continuity rejection in this passage | Core tracking coverage is high under the chosen thresholds; it does not quantify anatomical accuracy |

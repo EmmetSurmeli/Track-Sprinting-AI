@@ -6,6 +6,7 @@ import io
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import uuid
@@ -221,7 +222,7 @@ with st.expander("01  ·  Footage & analysis settings", expanded=not has_result)
                         try:
                             saved_id = history.save(output, log_date, st.session_state.source_label, event, log_notes)
                             set_analysis(history.directory(saved_id))
-                        except (OSError, ValueError) as e:
+                        except (OSError, ValueError, sqlite3.Error):
                             st.session_state.log_save_error = "Analysis completed, but calendar storage failed. Your result is still available; use Save to calendar to retry."
                         st.rerun()
             except VideoError as e:
@@ -249,7 +250,7 @@ else:
                     saved_id = history.save(directory, existing_date, existing_title or "Sprint review", event, existing_notes)
                     set_analysis(history.directory(saved_id))
                     st.rerun()
-                except (OSError, ValueError):
+                except (OSError, ValueError, sqlite3.Error):
                     st.error("Could not save the calendar entry. Your analysis is still available; check local disk space and retry.")
 review_side = summary["review_side"]
 metrics = summary["metrics"]
