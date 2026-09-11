@@ -1,0 +1,20 @@
+<section class="viewer" aria-label="Frame inspector">
+  <div class="toolbar">
+    <label for="frame-range">Scrub the analyzed frames</label>
+    <span class="counter"></span>
+  </div>
+  <input id="frame-range" type="range" min="0" step="1" value="0" aria-label="Scrub the analyzed frames">
+  <div class="controls">
+    <button class="previous" aria-label="Previous frame">←</button>
+    <button class="next" aria-label="Next frame">→</button>
+    <span>Drag to scrub · Arrow keys to step · Shift + arrow to skip ten</span>
+  </div>
+  <div class="mark-controls" hidden>
+    <button class="mark-touchdown">Set touchdown here</button>
+    <button class="mark-toeoff">Set toe-off here</button>
+  </div>
+  <div class="review">
+    <div class="picture"><canvas aria-label="Selected sprint frame" role="img"></canvas><p class="loading" role="status">Preparing frames…</p></div>
+    <div class="measurements"><h3 class="frame-title"></h3><p class="timestamp"></p><div class="metric-list"></div></div>
+  </div>
+</section>

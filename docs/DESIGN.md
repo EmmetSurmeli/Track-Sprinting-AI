@@ -4,7 +4,7 @@
 
 Track Sprint AI helps a sprinter and coach review an approximately side-on upright sprint passage. The author has experience as a sprinter, captain and informal coach. The recurring job is to turn slow-motion footage into a small number of inspectable talking points without repeatedly drawing every joint by hand.
 
-The deliverable is a local Python app, source repository and recorded demonstration. A single foreground athlete and a standardized recording are the intended happy path. Public deployment, contact timing, force estimates, medical advice and anatomical asymmetry conclusions are outside this MVP.
+The deliverable is a local Python app, source repository and recorded demonstration. A single foreground athlete and a standardized recording are the intended happy path. User-reviewed shoe-contact timing is available with verified timeline mapping and explicit frame bounds. Public deployment, automatic contact detection, force estimates, medical advice and anatomical asymmetry conclusions are outside this MVP.
 
 ## Data flow
 
@@ -27,7 +27,7 @@ flowchart LR
 
 **Measurement boundary:** landmarks are retained as raw and accepted arrays. Per-joint visibility/presence, image bounds and broad segment-length sanity checks determine availability. Knee/hip metrics are never calculated from missing inputs. A centered five-frame Savitzky–Golay filter works on valid spans using an intermediate uniform time grid; it does not bridge gaps. Smoothing is applied to angle trajectories, not to joint coordinates. That intentionally differs from the initial proposed pipeline and avoids turning repaired coordinates into apparently observed joints.
 
-**Generation boundary:** `build_context` chooses review-side metrics with at least 85% valid coverage. Panning/moving-camera trunk and thigh orientations are excluded from AI coaching. All right-side facts are excluded when reviewing the left side and vice versa. Research retrieval is a transparent topic overlap over six manually reviewed summaries. The library is small enough that embeddings and a vector database would add complexity without a useful retrieval benefit.
+**Generation boundary:** `build_context` chooses review-side angle metrics with at least 85% valid coverage. Panning/moving-camera trunk and thigh orientations are excluded from AI coaching. Opposite-side angles are excluded; independently reviewed contact timing can qualify on either side after repeated contacts pass the timing and side-label checks. Research retrieval uses topic overlap and explicit profile rules over fifteen reviewed summaries. The library is small enough that embeddings and a vector database would add complexity without a useful retrieval benefit.
 
 The profile and retrieved data are explicitly untrusted prompt input. The LLM receives no files or tools. `CoachingReport` constrains the shape; additional checks require eligible metric IDs, supporting extrema frame IDs, retrieved source IDs and approved activity IDs. Generated prose cannot include numeric claims or arbitrary links. Numeric facts and citation links are rendered from verified input objects. This checks referential grounding, **not the truth of every semantic inference**. A human should review the report before demonstrating or using it.
 
@@ -42,7 +42,9 @@ Use pixel-space coordinates with x in the athlete's direction of travel and y up
 | Trunk / frame vertical | atan2 of forward and upward shoulder–hip components | Camera roll/obliquity changes it |
 | Thigh / downward vertical | atan2 of forward and downward hip–knee components | Camera-relative; not angular velocity |
 
-Positive trunk/thigh angles point forward. Straight upright trunk and downward thigh give zero trunk–thigh flexion. Extremes describe the selected interval, which can be less than a full stride. Repeated forward-thigh maxima create candidate cycle intervals when present. No heuristic identifies touchdown, toe-off, ground contact or true stride duration. Range outputs are descriptive; the app provides no ideal-angle comparison.
+Positive trunk/thigh angles point forward. Straight upright trunk and downward thigh give zero trunk–thigh flexion. Extremes describe the selected interval, which can be less than a full stride. Repeated forward-thigh maxima create candidate cycle intervals when present. No heuristic identifies touchdown, toe-off, ground contact or true stride duration. The separate contact tool lets a human mark visible shoe transitions and computes duration bounds from adjacent source timestamps. Range outputs are descriptive; the app provides no ideal-angle comparison.
+
+**Personalization and contacts:** `personalization.py` selects youth, body-size, sex-research and injury-context instructions and evidence. The report must reference applicable youth/injury rules, and profile changes alter the request/cache key. Youth or reported injury contexts suppress the editorial activity catalog. These are inspectable constraints, not proof that an LLM will always interpret research correctly. `contacts.py` withholds milliseconds without user-confirmed timing, excludes ambiguous/overlapping contact pairs, and requires repeated observations with sufficiently small boundary gaps before bilateral comparisons. Saved annotations are independent of pose measurements. See [research and timing definitions](PROFILE_AND_CONTACT_RESEARCH.md).
 
 Tracking status is based on the minimum of knee and trunk–thigh valid coverage: usable ≥85%, limited ≥50%, insufficient below that. The words describe **tracking coverage only**. There is no automated proof of side-on camera geometry, correct side labeling or anatomical accuracy. The user must inspect the footage and confirm side when known. Both sides can be plotted for inspection without inferring strength or injury risk.
 
@@ -69,8 +71,8 @@ The calendar supports month/year navigation, multiple analyses on one date, date
 | Streamlit | One Python stack, fast local review UI | React would improve synchronized playback but adds a second stack |
 | PyAV | Successfully decodes the supplied HEVC file with actual timestamps | Native AVFoundation decoding was unreliable under the coding sandbox |
 | MediaPipe Full 0.10.35, CPU delegate | Real demo inference completed; rich landmarks and confidence fields | 1.0.1 crashed on the tested Mac; no model accuracy claim follows from selecting Full |
-| Frame slider | Exact frame-to-chart alignment | Original and annotated video players remain independent |
-| Six reviewed summaries | Auditable retrieval in a small domain | Broader research retrieval needs curation/evaluation first |
+| Browser-side frame viewer | Dragging updates frame/values locally; a settled selection updates the chart | Initial compressed preview load; original and annotated video players remain independent |
+| Fifteen reviewed summaries | Auditable retrieval in a small domain | Broader research retrieval needs curation/evaluation first |
 | Hosted structured LLM call | Meaningful generative interpretation with bounded outputs | No local LLM fallback or fake report in this build |
 | No clinical conclusions | Input cannot support them | Medical assessment requires a different evidence and validation standard |
 

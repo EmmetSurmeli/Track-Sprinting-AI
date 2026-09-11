@@ -1,0 +1,27 @@
+.viewer {font-family:inherit;color:#e5efeb;width:100%;}
+.toolbar {display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:15px;margin:0 0 10px;}
+.counter {color:#b8f35a;font-variant-numeric:tabular-nums;white-space:nowrap;}
+input[type=range] {display:block;box-sizing:border-box;width:100%;height:28px;margin:0;accent-color:#b8f35a;cursor:ew-resize;touch-action:pan-y;}
+input:focus-visible,button:focus-visible {outline:2px solid #2fcce5;outline-offset:3px;}
+.controls {display:flex;align-items:center;gap:8px;margin:9px 0 18px;}
+.controls span {color:#a8b8bc;font-size:12px;margin-left:5px;}
+.mark-controls {display:flex;gap:8px;margin:0 0 16px;}
+.mark-controls[hidden] {display:none;}
+.viewer.contact-review .review {grid-template-columns:1fr;}
+.viewer.contact-review .metric-list,.viewer.contact-review .timestamp {display:none;}
+.viewer.contact-review .measurements h3 {font-size:14px;margin:0;}
+button {font:inherit;color:#e5efeb;background:#151f27;border:1px solid #33434e;border-radius:8px;padding:5px 14px;cursor:pointer;}
+button:hover {border-color:#b8f35a;}
+button:disabled {opacity:.35;cursor:default;}
+.review {display:grid;grid-template-columns:minmax(0,2.5fr) minmax(160px,1fr);gap:22px;align-items:start;}
+.picture {position:relative;overflow:hidden;border-radius:12px;background:#151f27;min-height:160px;}
+canvas {display:block;width:100%;height:auto;}
+.loading {position:absolute;left:12px;bottom:8px;padding:6px 10px;background:#0c111bcc;border-radius:6px;font-size:13px;}
+.loading[hidden] {display:none;}
+h3 {font-size:18px;margin:0 0 12px;}
+.timestamp {font-size:12px;color:#a8b8bc;line-height:1.5;margin:0 0 14px;font-variant-numeric:tabular-nums;}
+.metric-list {display:grid;gap:10px;}
+.metric {background:#151f27;border:1px solid #28363f;padding:12px;border-radius:12px;}
+.metric-label {font-size:13px;color:#a8b8bc;}
+.metric-value {font-size:27px;margin-top:5px;font-variant-numeric:tabular-nums;}
+@media(max-width:720px) {.review {grid-template-columns:1fr;gap:14px;}.metric-list {grid-template-columns:repeat(3,minmax(0,1fr));}.metric {padding:10px;}.metric-value {font-size:23px;}.timestamp {margin-bottom:10px;}.controls span {font-size:11px;}}

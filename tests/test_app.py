@@ -27,9 +27,14 @@ def test_saved_demo_frame_selection_and_report_setup():
     next(b for b in app.button if b.label.startswith("Forward thigh position")).click().run(timeout=30)
     assert not app.exception
     assert app.session_state["frame_index"] == 53
-    assert any("Source frame 489" in m.value for m in app.markdown)
+    assert app.session_state["frame_command"] == 1
+    # Upgrading an already-open session can remove the old slider-owned key.
+    del app.session_state["frame_index"]
+    app.run(timeout=30)
+    assert not app.exception
+    assert 0 <= app.session_state["frame_index"] < 114
     # The final UI includes both local exports and the honest AI connection state.
-    assert len(app.tabs) == 4
+    assert len(app.tabs) == 6
 
 
 def test_empty_calendar_accessible_without_an_upload():
@@ -65,3 +70,26 @@ def test_calendar_save_edit_reopen_and_persistence():
     app.radio(key="workspace_page").set_value("Calendar & progress").run()
     assert not app.exception
     assert any("1 total" in c.value for c in app.caption)
+
+
+@pytest.mark.skipif(not (ROOT / "artifacts/demo/manifest.json").exists(), reason="Private demo not bundled")
+def test_contact_marking_with_unverified_timing_and_profile_context():
+    app = AppTest.from_file(str(ROOT / "app.py")).run(timeout=30)
+    next(b for b in app.button if b.label == "Open saved analysis").click().run(timeout=30)
+    assert not app.exception
+    assert any(t.label == "Contacts & sides" for t in app.tabs)
+    assert next(s for s in app.selectbox if s.label == "Contact side").value is None
+    assert next(s for s in app.selectbox if s.label == "Proposed touchdown frame").value is None
+    assert not any(b.label == "Add reviewed contact" for b in app.button)
+    next(s for s in app.selectbox if s.label == "Contact side").select("left").run()
+    next(s for s in app.selectbox if s.label == "Proposed touchdown frame").select(437).run()
+    next(s for s in app.selectbox if s.label == "Proposed toe-off frame").select(438).run()
+    next(c for c in app.checkbox if c.label.startswith("I checked both transitions")).check().run()
+    next(b for b in app.button if b.label == "Add reviewed contact").click().run()
+    assert not app.exception
+    assert any("milliseconds is withheld" in i.value for i in app.info)
+    next(n for n in app.number_input if n.label == "Age in years (optional)").set_value(16).run()
+    next(s for s in app.selectbox if s.label == "Sex for research context (optional)").select("Female").run()
+    next(s for s in app.selectbox if s.label == "Injury context").select("Current symptoms").run()
+    assert not app.exception
+    assert any("this review stays observational" in w.value for w in app.warning)

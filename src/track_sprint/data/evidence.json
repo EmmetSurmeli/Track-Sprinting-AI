@@ -1,7 +1,88 @@
 {
-  "version": "2026-09-09.1",
+  "version": "2026-09-10.3",
   "description": "Manually reviewed research summaries, not quotations. These studies do not validate this app or establish ideal sprint angles.",
   "sources": [
+    {
+      "id": "haralabidis-2025", "title": "Simulations Reveal How Touchdown Kinematic Variables Affect Top Sprinting Speed: Implications for Coaching",
+      "authors": "Haralabidis et al.", "year": 2025, "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12893165/", "doi": "10.1249/MSS.0000000000003797",
+      "type": "Peer-reviewed predictive simulation study", "location": "Abstract and Discussion",
+      "population": "A three-dimensional musculoskeletal model scaled to an international-caliber adult male sprinter, simulating a symmetric top-speed step.",
+      "summary": "Reducing horizontal foot-to-center-of-mass touchdown distance below the model's optimum reduced speed and contact time. Changes to inter-knee touchdown distance had little effect within the tested range. Shorter touchdown distance or shorter contact was not automatically better.",
+      "limitations": "One model and one sprint phase do not provide an individual target. A hip landmark is not whole-body center of mass. Current angle extrema do not measure touchdown distance, braking force, or whether the foot lands too far forward.",
+      "topics": ["hip", "knee", "contact_time", "touchdown_position", "phase"]
+    },
+    {
+      "id": "nagahara-2013", "title": "Determination of Foot Strike and Toe-off Event Timing during Maximal Sprint Using Kinematic Data",
+      "authors": "Nagahara and Zushi", "year": 2013, "url": "https://www.jstage.jst.go.jp/article/ijshs/11/0/11_201318/_article", "doi": "10.5432/ijshs.201318",
+      "type": "Peer-reviewed event-detection validation study", "location": "Abstract",
+      "population": "Five male sprinters during acceleration, using tracked foot markers and simultaneous ground-reaction-force measurements.",
+      "summary": "Toe-marker vertical acceleration and position were used to locate contact events and evaluated against a force reference. This establishes a non-LLM approach under the study's measurement conditions.",
+      "limitations": "Tracked laboratory markers are not noisy monocular MediaPipe foot landmarks. The study does not validate this app, arbitrary camera motion, hidden shoes, or an LLM judging selected frames.",
+      "topics": ["contact_time", "event_detection"]
+    },
+    {
+      "id": "evans-2021", "title": "Automatic high fidelity foot contact location and timing for elite sprinting",
+      "authors": "Evans et al.", "year": 2021, "url": "https://link.springer.com/article/10.1007/s00138-021-01236-z", "doi": "10.1007/s00138-021-01236-z",
+      "type": "Peer-reviewed computer-vision measurement study", "location": "Abstract and Conclusion",
+      "population": "Laboratory and sporting sprint recordings using a multi-camera setup.",
+      "summary": "The study evaluated engineered occupancy-map contact detection and fused OpenPose toe tracking for contact locations and timing. Temporal video processing can detect sprint contacts without a language model.",
+      "limitations": "Multi-camera results cannot be transferred to one panning phone camera. Camera calibration, event validation, and left/right tracking remain necessary for this application.",
+      "topics": ["contact_time", "event_detection"]
+    },
+    {
+      "id": "murphy-2021", "title": "Relationship between anthropometric and kinematic measures to practice velocity in elite American 100 m sprinters",
+      "authors": "Murphy et al.", "year": 2021, "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8580521/", "doi": null,
+      "type": "Peer-reviewed observational study", "location": "Methods and Table 1",
+      "population": "Nineteen male and nineteen female elite adult US sprinters; mean age about twenty-seven.",
+      "summary": "The reported group means for maximum upper-leg flexion differed modestly, while total thigh excursion was similar. Contact events were visually identified with high-speed video. These are descriptive results from adults.",
+      "limitations": "Does not test whether most high-school girls use less frontside mechanics. No individual optimal angle follows from sex, height or weight. Study angle conventions must not be treated as this app's target values.",
+      "topics": ["profile", "sex", "body_size", "knee", "hip", "thigh", "contact_time"]
+    },
+    {
+      "id": "talukdar-2021", "title": "Kinetics and Kinematics of Sprinting in Mid and Post Peak Height Velocity Female Athletes",
+      "authors": "Talukdar et al.", "year": 2021, "url": "https://doi.org/10.47206/ijsc.v1i1.65", "doi": "10.47206/ijsc.v1i1.65",
+      "type": "Peer-reviewed observational study", "location": "Abstract",
+      "population": "Thirty-two young female athletes classified into mid- and post-peak-height-velocity groups.",
+      "summary": "Sprint characteristics differed across growth-related groups. The findings support considering development when discussing young athletes' sprint performance.",
+      "limitations": "This female-only sample does not test a girls-versus-boys frontside hypothesis. Chronological age alone does not establish maturity, and adult norms are not youth prescriptions.",
+      "topics": ["profile", "youth", "contact_time"]
+    },
+    {
+      "id": "miller-2024", "title": "Sex differences in muscle morphology between male and female sprinters",
+      "authors": "Miller et al.", "year": 2024, "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11365543/", "doi": "10.1152/japplphysiol.00009.2023",
+      "type": "Peer-reviewed muscle imaging study", "location": "Abstract and Conclusion",
+      "population": "Adult male and female sprinters, including elite and performance-matched subgroups.",
+      "summary": "Muscle-volume differences depended on muscle group and the performance groups compared. Elite male and female sprinters showed similar relative muscle distribution.",
+      "limitations": "Body mass or sex is not a substitute for measured muscle morphology or strength. This does not prescribe an individual's sprint posture, infer a weak muscle from video or establish a high-school sex difference.",
+      "topics": ["profile", "body_size", "sex", "strength"]
+    },
+    {
+      "id": "exell-2017", "title": "Strength and performance asymmetry during maximal velocity sprint running",
+      "authors": "Exell et al.", "year": 2017, "url": "https://pubmed.ncbi.nlm.nih.gov/27671707/", "doi": "10.1111/sms.12759",
+      "type": "Peer-reviewed biomechanics study", "location": "Abstract",
+      "population": "Eight athletes with laboratory sprint and jump measurements.",
+      "summary": "Asymmetry patterns were individual and task-specific. Overall asymmetry was not related to sprint performance in this small sample.",
+      "limitations": "A video-derived contact or angle difference cannot identify a particular weak muscle. Strength capacity is one assessment question among several, requiring independent testing.",
+      "topics": ["asymmetry", "strength", "injury", "contact_time", "knee", "hip"]
+    },
+    {
+      "id": "bramah-2026", "title": "Sprint running mechanics are associated with hamstring strain injury: a 6-month prospective cohort study of 126 elite male footballers",
+      "authors": "Bramah et al.", "year": 2026, "url": "https://pubmed.ncbi.nlm.nih.gov/40122585/", "doi": "10.1136/bjsports-2024-108600",
+      "type": "Peer-reviewed prospective cohort study", "location": "Abstract",
+      "population": "Professional male football players assessed with the Sprint Mechanics Assessment Score.",
+      "summary": "A clinician-assessed sprint mechanics score was associated with subsequent sprint-related hamstring injuries in the studied cohort.",
+      "limitations": "This app does not implement or validate that score. The study cannot turn this app's angles into an injury prediction, explain a user's past injury, or establish applicability to adolescent girls.",
+      "topics": ["injury", "profile", "hip", "knee"]
+    },
+    {
+      "id": "nicholson-2025", "title": "A comparison between common measurement systems for quantifying spatiotemporal variables during the early sprint acceleration phase",
+      "authors": "Nicholson et al.", "year": 2025, "url": "https://journals.sagepub.com/doi/10.1177/17479541251333937", "doi": "10.1177/17479541251333937",
+      "type": "Peer-reviewed measurement comparison", "location": "Methods and Results",
+      "population": "University students sprinting with simultaneous high-speed video, optical and force-platform measurements.",
+      "summary": "Video and instrumented measurements showed systematic contact-time differences. Visually marked shoe contact is not interchangeable with force-defined contact.",
+      "limitations": "High-speed video can support reviewed event timing under controlled conditions, but this does not validate automatic foot-contact detection or the current app. Frame brackets omit other sources of error.",
+      "topics": ["contact_time", "asymmetry", "visibility"]
+    },
     {
       "id": "wade-2023",
       "title": "Examination of 2D frontal and sagittal markerless motion capture: Implications for markerless applications",

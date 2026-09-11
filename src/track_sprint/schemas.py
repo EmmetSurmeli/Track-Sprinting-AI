@@ -13,10 +13,15 @@ class AthleteProfile(StrictModel):
     experience: str = Field(default="Intermediate", max_length=40)
     goal: str = Field(default="Understand my upright sprint mechanics", max_length=500)
     age_band: str = Field(default="Prefer not to say", max_length=30)
+    age_years: int | None = Field(default=None, ge=10, le=100)
+    sex_for_research: Literal["Prefer not to say", "Female", "Male", "Another / not represented"] = "Prefer not to say"
     height_cm: float | None = Field(default=None, ge=80, le=250)
     weight_kg: float | None = Field(default=None, ge=20, le=250)
     injury_context: str = Field(default="", max_length=500)
     current_pain: bool = False
+    injury_status: Literal["None reported", "Past injury, no current symptoms", "Current symptoms", "Returning with professional guidance"] = "None reported"
+    injury_region: str = Field(default="Not specified", max_length=50)
+    injury_side: Literal["Not specified", "Left", "Right", "Both"] = "Not specified"
 
 
 class AnalysisConfig(StrictModel):
@@ -53,6 +58,8 @@ class CoachingReport(StrictModel):
     overview: str = Field(max_length=600)
     observations: list[Observation] = Field(max_length=3)
     next_review: str = Field(max_length=500)
+    personalization: str = Field(max_length=800)
+    personalization_refs: list[str] = Field(min_length=1, max_length=7)
 
     @model_validator(mode="after")
     def status_matches(self):
@@ -61,3 +68,19 @@ class CoachingReport(StrictModel):
         if self.status == "limited" and self.observations:
             raise ValueError("A limited report cannot contain coaching observations.")
         return self
+
+
+class ContactMark(StrictModel):
+    side: Literal["left", "right"]
+    touchdown_frame: int
+    toeoff_frame: int
+    visibility_confirmed: bool = False
+
+
+class ContactReview(StrictModel):
+    analysis_id: str
+    timing_basis: Literal["Unverified", "Decoded timestamps are real time", "Known constant slow-motion factor"] = "Unverified"
+    slow_motion_factor: float = Field(default=1.0, ge=1, le=32)
+    timing_confirmed: bool = False
+    side_labels_confirmed: bool = False
+    marks: list[ContactMark] = Field(default_factory=list, max_length=40)

@@ -7,7 +7,7 @@ import json
 import plotly.graph_objects as go
 import streamlit as st
 
-from .history import compare_sessions
+from .history import compare_sessions, compare_contact_sessions
 
 
 def shift_month(offset):
@@ -70,6 +70,8 @@ def show_calendar(store, open_analysis):
     stats[0].metric("Frames", summary["frame_count"])
     stats[1].metric("Core coverage", f"{summary['core_coverage']:.0%}")
     stats[2].metric("Review side", summary["review_side"].title())
+    if contacts := current.get("contact_results"):
+        st.caption(f"{len(contacts['contacts'])} reviewed shoe contacts saved with this analysis.")
     if current["notes"]:
         st.write(current["notes"])
     if st.button("Open this analysis", type="primary"):
@@ -102,6 +104,10 @@ def show_calendar(store, open_analysis):
             st.dataframe(rows, hide_index=True, width="stretch")
         else:
             st.info("No matching measurements meet the comparison checks. Use the same event, review side and processing settings, with clear joint visibility.")
+        if contact_rows := compare_contact_sessions(current, lookup[previous_id]):
+            st.markdown("**Reviewed contact-time changes**")
+            st.dataframe(contact_rows, hide_index=True, width="stretch")
+            st.caption("Frame bounds omit marking error and other measurement error. Compare similar sprint phases and recording conditions; shorter contact alone does not establish improvement.")
     st.caption("Changes are observed angle differences, not an improvement score. Different views, sprint phases or selected stride positions can change the result. Use consistent filming and your coach's feedback to judge progress.")
     st.subheader("Measurements over time")
     metric_name = st.selectbox("Trend measurement", ["knee", "hip"], format_func=lambda x: "Knee flexion" if x == "knee" else "Trunk–thigh flexion")
@@ -123,6 +129,24 @@ def show_calendar(store, open_analysis):
         margin={"t": 25, "b": 35, "l": 20, "r": 20})
     st.plotly_chart(fig, width="stretch")
     st.caption("Same event, model review side and processing method only. Low-coverage results are gaps. Camera geometry is not calibrated across sessions.")
+    contact_entries = [e for e in entries if e["event"] == current["event"]]
+    if any((e.get("contact_results") or {}).get("comparison") for e in contact_entries):
+        st.markdown("**Reviewed contact time over time**")
+        contacts_plot = go.Figure()
+        for side, color in [("left", "#2FCCE5"), ("right", "#FF9E5B")]:
+            values = []
+            errors = []
+            for e in contact_entries:
+                c = e.get("contact_results") or {}
+                m = c.get("sides", {}).get(side) if c.get("comparison") else None
+                values.append(m["mean_ms"] if m else None)
+                errors.append(max(m["mean_ms"] - m["lower_ms"], m["upper_ms"] - m["mean_ms"]) if m else 0)
+            contacts_plot.add_trace(go.Scatter(x=[e["session_date"] for e in contact_entries], y=values,
+                mode="lines+markers", connectgaps=False, name=side.title(), line={"color": color},
+                error_y={"type": "data", "array": errors, "visible": True}))
+        contacts_plot.update_layout(height=300, xaxis_title="Recording date", yaxis_title="Reviewed shoe contact (ms)")
+        st.plotly_chart(contacts_plot, width="stretch")
+        st.caption("Bars show conservative frame-bound ranges, not statistical confidence intervals. Unverified or incomplete bilateral reviews remain gaps.")
     export = [{k: v for k, v in e.items() if k != "manifest"} for e in entries]
     st.download_button("Download training log", json.dumps(export, indent=2), "training-log.json", "application/json")
     st.caption("History is saved on this computer and survives browser restarts and Clear this session. It is excluded from GitHub.")

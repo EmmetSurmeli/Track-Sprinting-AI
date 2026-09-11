@@ -54,6 +54,9 @@ class HistoryStore:
                 shutil.copytree(source / "frames", staging / "frames")
                 if (source / "reports").is_dir():
                     shutil.copytree(source / "reports", staging / "reports")
+                for name in ("contacts.json", "contact_results.json"):
+                    if (source / name).exists():
+                        shutil.copyfile(source / name, staging / name)
                 try:
                     staging.rename(destination)
                 except OSError:
@@ -79,6 +82,8 @@ class HistoryStore:
             item = dict(row)
             item["summary"] = json.loads(item.pop("summary_json"))
             item["manifest"] = json.loads(item.pop("manifest_json"))
+            contact_path = self.directory(item["id"]) / "contact_results.json"
+            item["contact_results"] = read_json(contact_path) if contact_path.exists() else None
             result.append(item)
         return result
 
@@ -135,3 +140,18 @@ def compare_sessions(current, previous):
                 rows.append({"Measurement": f"{metric['label']} · {label}", "Previous (°)": old[stat],
                              "Current (°)": metric[stat], "Change (°)": round(metric[stat] - old[stat], 1)})
     return rows, warnings
+
+
+def compare_contact_sessions(current, previous):
+    a, b = current.get("contact_results"), previous.get("contact_results")
+    if (not a or not b or not a.get("comparison") or not b.get("comparison") or
+            a.get("method") != b.get("method") or current["event"] != previous["event"]):
+        return []
+    rows = []
+    for side in ("left", "right"):
+        new, old = a["sides"][side], b["sides"][side]
+        rows.append({"Side": side, "Previous mean (ms)": old["mean_ms"], "Current mean (ms)": new["mean_ms"],
+            "Change (ms)": round(new["mean_ms"] - old["mean_ms"], 2),
+            "Change lower bound (ms)": round(new["lower_ms"] - old["upper_ms"], 2),
+            "Change upper bound (ms)": round(new["upper_ms"] - old["lower_ms"], 2)})
+    return rows

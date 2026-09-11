@@ -30,10 +30,14 @@ For editable development, use `python -m pip install -e '.[dev]'`. The entry poi
 3. Set travel direction and, if known, the athlete's camera-facing anatomical side. Leave the side unknown when unsure. Mark camera movement honestly.
 4. Analyze. Review the original and annotated passage, scrub frames, and open the motion curves. Gray joints fail visibility checks; missing measurements stay missing.
    Completed analyses are automatically saved to **Calendar & progress**, using today's date or the recording date you select. Add session notes or coach feedback, browse any month/year, reopen saved analyses and compare with previous sessions. An existing result can be added with **Save to calendar**.
-5. Enter an API key privately, fill in your profile, and select **Generate coaching**. Inspect the cited frames and research caveats before using any suggestions.
-6. Download the annotated MP4, measurement JSON, coaching Markdown, or analysis ZIP.
+5. In **Contacts & sides**, scrub the original footage and use **Set touchdown here** / **Set toe-off here** to mark the frame you are viewing. Choose which foot you followed, then check both transition pairs before saving. The selections start empty and are not automatic detections. Milliseconds require a verified real-time mapping. Side comparisons require confirmed anatomical labels, at least two clear contacts per side, and sufficiently small timing brackets. Annotations save with the analysis; eligible contact means and uncertainty also appear in the calendar.
+6. Fill in optional age, height, weight, research sex category, experience and injury context. **Profile & research** explains how those details affect the AI request and which research applies. These fields do not create an ideal angle or diagnose a weak muscle.
+7. Enter an API key privately and select **Generate coaching**. Inspect the personalized explanation, cited frames and research caveats before using any suggestions.
+8. Download the annotated MP4, measurement JSON, coaching Markdown, or analysis ZIP. The ZIP includes saved contact annotations and derived timing results.
 
 The original file is not modified. Both exported video players show the selected passage at a deliberate fourfold slowdown of the decoder timeline. Their playback is independent; the frame slider provides exact correspondence with measurements and chart cursors.
+
+The frame inspector loads compressed previews into the browser, then updates the image and measurements as you drag. Use arrow keys for single frames or Shift + arrow for ten-frame steps. Releasing the slider updates the motion-chart cursor; dragging itself does not rerun the Python app. Initial preview preparation happens once per cached analysis.
 
 The author's private demo input and derived media are intentionally excluded from GitHub. A fresh clone starts with an upload screen. The local **Use my demo clip** / **Open saved analysis** shortcuts appear only when the corresponding ignored artifacts exist.
 
@@ -52,9 +56,9 @@ No report is fabricated when the API is unavailable. Cached reports retain real 
 
 ## What leaves your computer
 
-Pose inference, original footage, extracted frames and landmarks stay local. Only the computed summary, optional athlete profile and selected research summaries are sent to OpenAI when generation is requested. The request sets `store=False`; this does not imply zero provider retention. [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data).
+Pose inference, original footage, extracted frames and landmarks stay local. Only the computed summary, reviewed contact results, optional athlete profile and selected research summaries are sent to OpenAI when generation is requested. The request sets `store=False`; this does not imply zero provider retention. [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data).
 
-The key and the input profile are excluded from saved reports and downloads. Generated prose could still reflect information supplied in the profile; review exports before sharing. Derived artifacts live in `artifacts/`. **Clear this session** removes temporary browser-session files. Your calendar, session notes and archived analysis passages persist under `artifacts/history/`, separate from temporary cleanup, saved demo artifacts and downloaded exports. Expired temporary directories are cleaned when a later session starts. This is an ordinary filesystem deletion, not a secure-erasure guarantee.
+The key and raw input profile are excluded from saved reports and downloads. Saved personalization rules and generated prose can still reveal profile context, including whether youth or injury constraints applied; review exports before sharing. Derived artifacts live in `artifacts/`. **Clear this session** removes temporary browser-session files. Your calendar, session notes and archived analysis passages persist under `artifacts/history/`, separate from temporary cleanup, saved demo artifacts and downloaded exports. Expired temporary directories are cleaned when a later session starts. This is an ordinary filesystem deletion, not a secure-erasure guarantee.
 
 The calendar is one local training log for the same athlete; it does not identify people across uploads. Re-saving the same analysis updates its date/title/notes instead of adding duplicates. Date changes reorder the history. Comparisons show observed minimum/maximum angle differences and trends, with no automatic better/worse score: angle changes can reflect camera viewpoint, selected sprint phase or pose error. Event, side, processing method and visibility checks restrict comparisons. Camera-relative orientation metrics are omitted from comparisons when either camera moves. Export the training log as JSON from the calendar page.
 
@@ -81,16 +85,24 @@ src/track_sprint/
   coaching.py                  Retrieval, bounded API calls, grounding checks, cache
   schemas.py                   Typed contracts
   charts.py                    Frame-linked Plotly curves
+  frame_viewer.py / viewer/     Browser-side scrubbing, preview cache and frame stepping
   artifacts.py                 Hashes, atomic JSON writes, scoped cleanup
   history.py                   Durable SQLite training log and comparison rules
   calendar_ui.py               Month view, dated notes, saved results and trends
-  data/                        Six reviewed research summaries and activity catalog
+  contacts.py / contact_ui.py   Reviewed shoe transitions, timing bounds, side differences
+  personalization.py           Profile rules and research applicability
+  profile_ui.py                Profile effects and injury-aware research discussion
+  data/                        Fifteen reviewed research summaries and activity catalog
 scripts/                       CLI analysis, decoding inspection, artifact verification
 tests/                         Offline unit/integration tests
 docs/                          Design, validation, walkthrough and demo preparation
 ```
 
 Read [the architecture](docs/DESIGN.md), [limitations and validation](docs/VALIDATION.md), [code walkthrough](docs/WALKTHROUGH.md), [demo script](docs/DEMO_SCRIPT.md), and [GitHub submission guide](docs/SUBMISSION.md). The earlier [approved plan](docs/MVP_PLAN.md) records scope decisions; actual implementation takes precedence.
+
+The [profile and contact research note](docs/PROFILE_AND_CONTACT_RESEARCH.md) documents timing assumptions, potential contributors to investigate, and why the high-school sex/frontside hypothesis is not established by the reviewed studies.
+
+The [biomechanics roadmap](docs/BIOMECHANICS_ROADMAP.md) distinguishes implemented measurements from future contact detection, event-conditioned geometry, flight timing and calibrated stride length, with primary research and commentary on The Sprint Project's coaching articles.
 
 ## Troubleshooting
 

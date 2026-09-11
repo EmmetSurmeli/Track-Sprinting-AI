@@ -22,6 +22,9 @@ from dotenv import load_dotenv
 from track_sprint.artifacts import clean_expired_sessions, delete_session, read_json, stable_hash, write_json
 from track_sprint.charts import motion_figure
 from track_sprint.calendar_ui import show_calendar
+from track_sprint.contact_ui import show_contacts
+from track_sprint.profile_ui import show_profile_context
+from track_sprint.frame_viewer import show_frame_viewer
 from track_sprint.history import HistoryStore
 from track_sprint.coaching import CoachingError, DEFAULT_MODEL, generate_report, library, report_markdown
 from track_sprint.metrics import METRICS
@@ -80,13 +83,14 @@ def adopt_source(path, label):
 
 def jump_to(index):
     st.session_state.frame_index = index
+    st.session_state.frame_command = st.session_state.get("frame_command", 0) + 1
 
 
 def export_bundle(directory):
     out = io.BytesIO()
     # Whitelist only derived data. Never include uploads, secrets or unrelated local files.
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for name in ("summary.json", "series.json", "manifest.json", "landmarks.npz", "annotated.mp4"):
+        for name in ("summary.json", "series.json", "manifest.json", "landmarks.npz", "annotated.mp4", "contacts.json", "contact_results.json"):
             path = directory / name
             if path.is_file():
                 z.write(path, name)
@@ -97,7 +101,7 @@ def export_bundle(directory):
 
 with st.sidebar:
     st.markdown('<div class="eyebrow">TRACK SPRINT AI</div>', unsafe_allow_html=True)
-    st.caption("A local motion review workspace")
+    st.caption("Your sprint review workspace")
     if page := st.session_state.pop("pending_workspace", None):
         st.session_state.workspace_page = page
     workspace_page = st.radio("Workspace", ["Sprint review", "Calendar & progress"], key="workspace_page")
@@ -107,12 +111,21 @@ with st.sidebar:
     goal = st.text_area("What do you want to review?", "Understand my upright sprint mechanics", max_chars=500, height=90)
     with st.expander("Optional context"):
         age = st.selectbox("Age band", ["Prefer not to say", "Under 18", "18–24", "25+"])
+        age_years = st.number_input("Age in years (optional)", min_value=10, max_value=100, value=None, step=1)
+        sex = st.selectbox("Sex for research context (optional)", ["Prefer not to say", "Female", "Male", "Another / not represented"],
+                          help="The reviewed studies use sex groups; these are not gender-identity categories or individual technique targets. Nothing is inferred from your video.")
         height = st.number_input("Height (cm)", min_value=80., max_value=250., value=None, step=1.)
         weight = st.number_input("Weight (kg)", min_value=20., max_value=250., value=None, step=1.)
+    with st.expander("Injury & current symptoms"):
+        injury_status = st.selectbox("Injury context", ["None reported", "Past injury, no current symptoms", "Current symptoms", "Returning with professional guidance"])
+        injury_region = st.selectbox("Area to discuss", ["Not specified", "Hamstring", "Hip / groin", "Knee", "Calf / Achilles / ankle", "Other"])
+        injury_side = st.selectbox("Reported side", ["Not specified", "Left", "Right", "Both"])
         injury = st.text_area("Anything affecting training?", max_chars=500, help="Optional. Included in the API request when you generate a report, but not saved in exported input data.")
         pain = st.checkbox("I have pain during running")
     profile = AthleteProfile(event=event, experience=experience, goal=goal, age_band=age,
-                             height_cm=height, weight_kg=weight, injury_context=injury, current_pain=pain)
+                             age_years=age_years, sex_for_research=sex, height_cm=height, weight_kg=weight,
+                             injury_context=injury, current_pain=pain, injury_status=injury_status,
+                             injury_region=injury_region, injury_side=injury_side)
     st.divider()
     st.markdown("### AI connection")
     key = st.text_input("OpenAI API key", type="password", placeholder="Enter your project API key",
@@ -130,7 +143,7 @@ with st.sidebar:
         st.rerun()
     st.caption("Temporary files expire after 24 hours of inactivity. Your saved training calendar persists on this computer.")
 
-st.markdown('<div class="eyebrow">MOTION LAB / LOCAL MVP</div>', unsafe_allow_html=True)
+st.markdown('<div class="eyebrow">MOTION LAB</div>', unsafe_allow_html=True)
 st.title("Sprint review" if workspace_page == "Sprint review" else "Calendar & progress")
 st.markdown('<div class="subline">See the movement. Inspect the measurement. Build a better conversation with your coach.</div>', unsafe_allow_html=True)
 if workspace_page == "Calendar & progress":
@@ -263,7 +276,8 @@ st.caption("Coverage is the fraction of frames passing visibility and geometry c
 if summary["config"]["near_side"] == "unknown":
     st.info("Camera-facing side is unconfirmed. The review side was selected from model coverage; confirm it before anatomical interpretation.")
 
-review_tab, motion_tab, coach_tab, method_tab = st.tabs(["02  Frame review", "Motion curves", "03  AI coach", "Method & evidence"])
+review_tab, motion_tab, contact_tab, coach_tab, profile_tab, method_tab = st.tabs(
+    ["02  Frame review", "Motion curves", "Contacts & sides", "03  AI coach", "Profile & research", "Method & evidence"])
 with review_tab:
     left, right = st.columns(2)
     left.markdown("**Original passage**")
@@ -272,17 +286,7 @@ with review_tab:
     right.video(str(directory / "annotated.mp4"))
     st.caption("Both players show the selected passage at a deliberate 4× slowdown of decoded media time. Players operate independently. Use the frame inspector for exact alignment.")
     st.subheader("Frame inspector")
-    idx = st.slider("Scrub the analyzed frames", 0, summary["frame_count"] - 1, key="frame_index",
-                    format="%d", help="This index maps to the original decoded frame shown below.")
-    fid = summary["frames"][idx]
-    imcol, statcol = st.columns([2.5, 1], gap="large")
-    imcol.image(str(directory / "frames" / f"{fid:06d}.jpg"), width="stretch")
-    with statcol:
-        st.markdown(f"**Source frame {fid}**")
-        st.caption(f"Decoded media time {summary['times'][idx]:.4f} s · model {review_side} side")
-        for name in ["knee", "hip", "trunk"]:
-            value = series[review_side][name]["smoothed"][idx]
-            st.metric(METRICS[name], "Unavailable" if value is None else f"{value:.1f}°")
+    show_frame_viewer(directory, summary)
     st.subheader("Positions worth reviewing")
     if not summary["keyframes"]:
         st.info("No reliable keyframes in this passage. Try a clearer side-on view.")
@@ -310,13 +314,19 @@ with motion_tab:
     else:
         st.caption("No complete candidate thigh cycle found. Ranges describe only the selected passage.")
 
+with contact_tab:
+    contact_details = show_contacts(directory, summary)
+
+with profile_tab:
+    show_profile_context(profile, library()[0])
+
 with coach_tab:
     st.subheader("A review you can trace")
     st.write("Generate a short coaching conversation from the measured passage and a reviewed research library. Each observation links back to source frames and evidence.")
     if pain:
         st.info("With current pain, this app offers recording review only. Discuss symptoms and return-to-training decisions with a qualified professional.")
     st.caption("Only the structured summary, your profile and research summaries are sent to OpenAI. Video frames and the original file stay local. OpenAI's API data policies apply.")
-    signature = stable_hash({"analysis": summary["analysis_id"], "profile": profile.model_dump()})
+    signature = stable_hash({"analysis": summary["analysis_id"], "profile": profile.model_dump(), "contacts": contact_details})
     if st.button("Generate coaching", type="primary", disabled=not bool(api_key), width="stretch"):
         try:
             with st.spinner("Connecting measured frames to research…"):
@@ -332,6 +342,8 @@ with coach_tab:
     if saved:
         report, ctx = saved["report"], saved["context"]
         st.markdown(report["overview"])
+        st.markdown("**How your profile shaped this review**")
+        st.write(report.get("personalization", ""))
         sources = {s["id"]: s for s in ctx["evidence"]}
         acts = {a["id"]: a for a in ctx["activities"]}
         for n, item in enumerate(report["observations"]):
@@ -340,7 +352,10 @@ with coach_tab:
                 st.write(item["explanation"])
                 for ref in item["metric_refs"]:
                     m = ctx["facts"][ref]
-                    st.caption(f"Measured · {m['side']} {m['label']} · {m['min']}–{m['max']}° in this passage · {m['coverage']:.0%} valid coverage")
+                    unit = "°" if m.get("units", "degrees") == "degrees" else " " + m["units"]
+                    quality_note = (f"{m['count']} user-reviewed contacts; see Contacts & sides for timing bounds"
+                                    if m["metric"] == "contact_time" else f"{m['coverage']:.0%} valid coverage")
+                    st.caption(f"Measured · {m['side']} {m['label']} · {m['min']}–{m['max']}{unit} in this passage · {quality_note}")
                 for fid in item["frame_refs"]:
                     st.button(f"Inspect source frame {fid}", key=f"report-{n}-{fid}", on_click=jump_to,
                               args=(summary["frames"].index(fid),))
@@ -364,9 +379,10 @@ with method_tab:
     st.subheader("What this app measures")
     st.write("MediaPipe estimates joints on each decoded frame. Python converts normalized points to aspect-correct pixels, rejects low-visibility geometry, then calculates projected angles. A centered five-frame filter smooths valid spans without filling missing data.")
     st.markdown("- **Knee flexion:** straight leg is zero; bending increases the angle.\n- **Trunk–thigh flexion:** signed angle from the downward trunk direction to the thigh; forward is positive. This is a hip-angle proxy.\n- **Trunk / frame vertical:** shoulder–hip orientation relative to the image's vertical.\n- **Thigh / downward vertical:** hip–knee orientation relative to downward image vertical; forward is positive.")
-    for warning in summary["warnings"]:
-        st.caption("• " + warning)
-    st.write("This MVP does not estimate sprint speed, ground-contact time, forces, injury risk, strength deficits or clinically validated joint angles. A high tracking score does not remove projection error.")
+    with st.expander("About the measurements"):
+        st.write("Angles describe the movement visible in this camera view. Camera position and joint visibility affect the result. Shoe-contact timing uses the transitions you review and a verified video timeline.")
+        for warning in summary["warnings"]:
+            st.caption("• " + warning)
     st.subheader("Research library")
     evidence, _ = library()
     for s in evidence["sources"]:
@@ -385,4 +401,4 @@ downloads = st.columns(3)
 downloads[0].download_button("Download annotated video", (directory / "annotated.mp4").read_bytes(), "sprint-overlay.mp4", "video/mp4", width="stretch")
 downloads[1].download_button("Download measurements", (directory / "summary.json").read_bytes(), "sprint-measurements.json", "application/json", width="stretch")
 downloads[2].download_button("Download analysis bundle", export_bundle(directory), "sprint-analysis.zip", "application/zip", width="stretch")
-st.caption("TRACK SPRINT AI · Local research MVP · Educational video review, not a medical assessment")
+st.caption("TRACK SPRINT AI · Review your movement. Follow your progress.")

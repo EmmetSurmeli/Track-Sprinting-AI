@@ -5,7 +5,7 @@ import json
 import pytest
 
 from track_sprint.artifacts import write_json
-from track_sprint.history import HistoryStore, compare_sessions
+from track_sprint.history import HistoryStore, compare_sessions, compare_contact_sessions
 
 
 @pytest.fixture
@@ -92,3 +92,34 @@ def test_invalid_identifier_cannot_escape_history_root(tmp_path):
     store = HistoryStore(tmp_path / "history")
     with pytest.raises(ValueError):
         store.directory("../../outside")
+
+
+def test_contact_annotations_survive_archive_and_reopen(tmp_path, source):
+    annotations = {"analysis_id": "a" * 64, "marks": [], "timing_confirmed": False}
+    results = {"analysis_id": "a" * 64, "contacts": [], "comparison": None}
+    write_json(source / "contacts.json", annotations)
+    write_json(source / "contact_results.json", results)
+    store = HistoryStore(tmp_path / "history")
+    identity = store.save(source, date.today(), "Contact review", "100 m")
+    assert json.loads((store.directory(identity) / "contacts.json").read_text()) == annotations
+    assert HistoryStore(tmp_path / "history").list()[0]["contact_results"] == results
+    # Reviewing contacts on a reopened archive is immediately reflected in the calendar.
+    results["contacts"] = [{"side": "left", "estimate_ms": None}]
+    write_json(store.directory(identity) / "contact_results.json", results)
+    assert HistoryStore(tmp_path / "history").list()[0]["contact_results"] == results
+
+
+def test_contact_history_deltas_preserve_bounds_and_require_compatible_results():
+    old = {"event": "100 m", "contact_results": {"method": "user-reviewed", "comparison": {"absolute_difference_percent": 0},
+           "sides": {side: {"mean_ms": 100, "lower_ms": 96, "upper_ms": 104} for side in ("left", "right")}}}
+    new = deepcopy(old)
+    new["contact_results"]["sides"]["left"] = {"mean_ms": 98, "lower_ms": 94, "upper_ms": 102}
+    rows = compare_contact_sessions(new, old)
+    assert rows[0]["Change (ms)"] == -2
+    assert rows[0]["Change lower bound (ms)"] == -10
+    assert rows[0]["Change upper bound (ms)"] == 6
+    new["event"] = "200 m"
+    assert compare_contact_sessions(new, old) == []
+    new["event"] = "100 m"
+    new["contact_results"]["comparison"] = None
+    assert compare_contact_sessions(new, old) == []

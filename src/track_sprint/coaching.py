@@ -8,9 +8,11 @@ from pydantic import ValidationError
 
 from .artifacts import read_json, stable_hash, write_json
 from .schemas import AthleteProfile, CoachingReport
+from .personalization import profile_guidance
+from .contacts import contact_results, load_contact_review
 
 DATA = Path(__file__).parent / "data"
-PROMPT_VERSION = "1.0"
+PROMPT_VERSION = "2.1"
 DEFAULT_MODEL = "gpt-5.4-mini"
 
 INSTRUCTIONS = """You help a sprinter review a short video with a coach. You receive computed
@@ -38,7 +40,23 @@ You may choose null or an ID from the supplied activity catalog for cue_id, dril
 exercise_id. Activities are optional editorial prompts for coach discussion, not treatments
 or research-proven corrections. Choose only activities whose topics match the metric.
 Use only supplied IDs; no free-form training prescriptions anywhere. If no activities are
-supplied, all activity IDs must be null. Never interpret two sides as an imbalance.
+supplied, all activity IDs must be null. Contact facts, when present, are user-marked timing
+estimates with frame-bracket uncertainty, never force measurements. A descriptive bilateral
+difference does not establish a muscular imbalance, causal mechanism or impaired performance.
+Do not infer foot landing position from knee or hip angle extrema. The current facts do not
+include touchdown distance, whole-body center of mass, stride length, flight time or braking
+force. Foot placement slightly ahead of the hips is not automatically a fault; shorter contact
+time is not automatically an improvement. Research optima from simulations are not this
+athlete's targets. Airtime alone cannot establish horizontal stride length.
+
+Write personalization explaining how the supplied profile_guidance changes THIS review.
+Reference its rule IDs in personalization_refs. Include youth, injury_context and
+active_symptoms whenever those rules exist. Apply their constraints to the whole report.
+Use the actual experience, event and goal rather than generic personalization. Never infer
+maturity from age, body composition or muscle capacity from height/weight, or optimal posture
+from sex. The claim that most high-school girls use less frontside mechanics is unconfirmed.
+Treat adult sex-group research as context, not a target or a conclusion about this athlete.
+For symptoms, remain observational and do not advise the athlete to continue painful running.
 """
 
 
@@ -50,26 +68,40 @@ def library():
     return read_json(DATA / "evidence.json"), read_json(DATA / "activities.json")
 
 
-def build_context(summary: dict, profile: AthleteProfile):
+def build_context(summary: dict, profile: AthleteProfile, reviewed_contacts=None):
     evidence, catalog = library()
+    guidance = profile_guidance(profile)
     # Prefer a conservative, visible-side subset. No orientation coaching from a panning view.
     eligible = {k: v for k, v in summary["metrics"].items()
                 if v["side"] == summary["review_side"] and v["coverage"] >= 0.85
                 and not (v["metric"] in ("trunk", "thigh") and summary["config"]["camera_moving"])}
     if summary["quality"] == "insufficient":
         eligible = {}
+    if reviewed_contacts and reviewed_contacts.get("analysis_id") == summary["analysis_id"]:
+        for side in ("left", "right"):
+            contacts = [c for c in reviewed_contacts["contacts"] if c["side"] == side and c["comparison_eligible"]]
+            if len(contacts) >= 2:
+                low, high = min(contacts, key=lambda c: c["estimate_ms"]), max(contacts, key=lambda c: c["estimate_ms"])
+                ref = f"{side}.contact_time"
+                eligible[ref] = {"id": ref, "metric": "contact_time", "label": "Reviewed shoe-contact duration", "side": side,
+                    "units": "ms", "min": low["estimate_ms"], "max": high["estimate_ms"], "coverage": 1.0,
+                    "min_frame": low["touchdown_frame"], "max_frame": high["touchdown_frame"], "count": len(contacts),
+                    "interpretation": "User-marked contact timing; uncertainty is in the contact review. No muscle or injury inference."}
     topics = {v["metric"] for v in eligible.values()}
-    sources = [s for s in evidence["sources"] if topics.intersection(s["topics"])]
+    profile_sources = {ref for rule in guidance["rules"] for ref in rule["evidence_refs"]}
+    sources = [s for s in evidence["sources"] if s["id"] in profile_sources or
+               ("profile" not in s["topics"] and topics.intersection(s["topics"]))]
     # Keep the measurement caveat even when there are no usable joint metrics.
     if not sources:
         sources = [s for s in evidence["sources"] if s["id"] == "wade-2023"]
     activities = [a for a in catalog["activities"] if topics.intersection(a["topics"])]
-    if profile.current_pain or profile.injury_context.strip() or profile.age_band == "Under 18":
+    if not guidance["activities_allowed"]:
         activities = []
     return {"quality": summary["quality"], "analysis_id": summary["analysis_id"],
         "camera_facing_side_confirmed": summary["config"]["near_side"] != "unknown",
         "warnings": summary["warnings"], "facts": eligible,
-        "profile": profile.model_dump(), "evidence": sources, "activities": activities,
+        "profile": profile.model_dump(), "profile_guidance": guidance, "contact_review": reviewed_contacts,
+        "evidence": sources, "activities": activities,
         "evidence_version": evidence["version"], "activities_version": catalog["version"]}
 
 
@@ -79,7 +111,13 @@ def validate_grounding(report: CoachingReport, context: dict):
     activities = {a["id"]: a for a in context["activities"]}
     if (not facts or context["quality"] == "insufficient") and report.status != "limited":
         raise ValueError("No eligible measurements for observations.")
-    prose = [report.overview, report.next_review]
+    rule_ids = {r["id"] for r in context["profile_guidance"]["rules"]}
+    if not set(report.personalization_refs).issubset(rule_ids):
+        raise ValueError("Unknown personalization reference.")
+    required = rule_ids.intersection({"youth", "injury_context", "active_symptoms"})
+    if not required.issubset(report.personalization_refs):
+        raise ValueError("Important profile context was not addressed.")
+    prose = [report.overview, report.next_review, report.personalization]
     for item in report.observations:
         if not set(item.metric_refs).issubset(facts):
             raise ValueError("Unknown or ineligible metric reference.")
@@ -114,7 +152,8 @@ def validate_grounding(report: CoachingReport, context: dict):
 
 def generate_report(summary: dict, profile: AthleteProfile, api_key: str, directory: Path,
                     model: str = DEFAULT_MODEL, client=None):
-    context = build_context(summary, profile)
+    contacts = contact_results(summary, load_contact_review(directory, summary)) if (directory / "contacts.json").exists() else None
+    context = build_context(summary, profile, contacts)
     cache_id = stable_hash({"context": context, "model": model, "prompt": PROMPT_VERSION})
     path = directory / "reports" / f"{cache_id}.json"
     if path.exists():
@@ -175,11 +214,18 @@ def report_markdown(saved):
     sources = {s["id"]: s for s in context["evidence"]}
     activities = {a["id"]: a for a in context["activities"]}
     lines = ["# Track Sprint AI — review", "", report["overview"], ""]
+    lines += ["## How your profile shaped the review", "", report.get("personalization", ""), ""]
     for item in report["observations"]:
         lines += [f"## {item['title']}", "", item["explanation"], "", f"Limit: {item['uncertainty']}", ""]
         for ref in item["metric_refs"]:
             m = context["facts"][ref]
-            lines += [f"- {m['side']} {m['label']}: observed {m['min']}–{m['max']} degrees; valid coverage {m['coverage']:.0%}."]
+            quality_note = (f"{m['count']} user-reviewed contacts" if m["metric"] == "contact_time"
+                            else f"valid coverage {m['coverage']:.0%}")
+            lines += [f"- {m['side']} {m['label']}: observed {m['min']}–{m['max']} {m.get('units', 'degrees')}; {quality_note}."]
+            if m["metric"] == "contact_time":
+                for c in context["contact_review"]["contacts"]:
+                    if c["side"] == m["side"] and c["comparison_eligible"]:
+                        lines += [f"  - Frames {c['touchdown_frame']}–{c['toeoff_frame']}: {c['estimate_ms']} ms; adjacent-frame bounds {c['lower_ms']}–{c['upper_ms']} ms. These omit annotation and calibration error."]
         lines += ["", "Source frames: " + ", ".join(map(str, item["frame_refs"])), ""]
         for ref in item["evidence_refs"]:
             s = sources[ref]

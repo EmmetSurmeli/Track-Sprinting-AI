@@ -24,7 +24,8 @@ def valid_report():
             "evidence_refs": ["wade-2023"], "explanation": "The knee changes position across the selected passage.",
             "uncertainty": "The camera-facing side remains unconfirmed, and projection affects the estimate.",
             "cue_id": "cue-whole-stride", "drill_id": None, "exercise_id": None}],
-        "next_review": "Record a clearer side-on passage for comparison."})
+        "next_review": "Record a clearer side-on passage for comparison.",
+        "personalization": "Your stated review goal guides the focus on inspectable leg positions.", "personalization_refs": ["goal"]})
 
 
 def test_retrieval_excludes_far_side_and_camera_orientation(summary):
