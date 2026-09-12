@@ -38,6 +38,7 @@ def test_injury_and_youth_cannot_be_ignored_by_structured_report():
     with pytest.raises(ValueError, match="profile context"):
         validate_grounding(CoachingReport.model_validate(data), context)
     data["personalization_refs"] = ["youth", "injury_context", "active_symptoms"]
+    data["next_review"] = context["next_review_required"]
     assert validate_grounding(CoachingReport.model_validate(data), context)
 
 

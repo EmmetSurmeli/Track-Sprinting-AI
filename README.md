@@ -4,7 +4,7 @@ A local sprint-video review app built for a Cornell Generative AI Club applicati
 
 **Pose tracking finds joints. Python calculates measurements. The LLM explains the resulting evidence.** The model never invents angles from the video.
 
-This is an MVP for a local demonstration and source-code review. It is not a publicly deployed service or a validated biomechanics instrument. The deterministic pipeline and UI run on the author's demonstration video. A real hosted coaching run remains pending API-key setup; see [validation status](docs/VALIDATION.md).
+This is an MVP for a local demonstration and source-code review. It is not a publicly deployed service or a validated biomechanics instrument. The deterministic pipeline, UI, and live AI coaching run on the author's demonstration video. Five of six live acceptance scenarios passed; active-symptom generation remains unreliable and is blocked by report checks. See [live acceptance results](docs/LLM_ACCEPTANCE.md) and [validation status](docs/VALIDATION.md).
 
 ## Run locally
 

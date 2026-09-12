@@ -26,7 +26,7 @@ from track_sprint.contact_ui import show_contacts
 from track_sprint.profile_ui import show_profile_context
 from track_sprint.frame_viewer import show_frame_viewer
 from track_sprint.history import HistoryStore
-from track_sprint.coaching import CoachingError, DEFAULT_MODEL, generate_report, library, report_markdown
+from track_sprint.coaching import CoachingError, DEFAULT_MODEL, PROMPT_VERSION, generate_report, library, report_markdown
 from track_sprint.metrics import METRICS
 from track_sprint.pipeline import PIPELINE_VERSION, load_analysis
 from track_sprint.schemas import AnalysisConfig, AthleteProfile
@@ -326,7 +326,8 @@ with coach_tab:
     if pain:
         st.info("With current pain, this app offers recording review only. Discuss symptoms and return-to-training decisions with a qualified professional.")
     st.caption("Only the structured summary, your profile and research summaries are sent to OpenAI. Video frames and the original file stay local. OpenAI's API data policies apply.")
-    signature = stable_hash({"analysis": summary["analysis_id"], "profile": profile.model_dump(), "contacts": contact_details})
+    signature = stable_hash({"analysis": summary["analysis_id"], "profile": profile.model_dump(), "contacts": contact_details,
+                             "model": DEFAULT_MODEL, "prompt": PROMPT_VERSION})
     if st.button("Generate coaching", type="primary", disabled=not bool(api_key), width="stretch"):
         try:
             with st.spinner("Connecting measured frames to research…"):

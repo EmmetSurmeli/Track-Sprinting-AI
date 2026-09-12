@@ -17,7 +17,7 @@ def profile_guidance(profile: AthleteProfile):
     if profile.height_cm is not None or profile.weight_kg is not None:
         rules.append({"id": "body_size", "effect": "Body size is context, not an angle target. Height and weight do not reveal leg proportions, muscle strength or body composition, and cannot calibrate this unscaled video.", "evidence_refs": ["murphy-2021", "miller-2024"]})
     if injury:
-        rules.append({"id": "injury_context", "effect": "Prioritize repeatable observations and questions for the athlete's coach or clinician. Do not attribute a side difference to the reported injury, identify a weak muscle or repeat private injury details in the report.", "evidence_refs": ["exell-2017", "bramah-2026"]})
+        rules.append({"id": "injury_context", "effect": "Prioritize repeatable observations and questions for the athlete's coach or clinician. Acknowledge reported area/side only as context. Do not attribute a measured difference to the injury or infer muscle capacity. Do not quote the private injury narrative.", "evidence_refs": ["exell-2017", "bramah-2026"]})
     if active:
         rules.append({"id": "active_symptoms", "effect": "Keep the review observational. No training progression, corrective drill, loading advice or clearance to sprint; return-to-sport decisions belong with the treating professional.", "evidence_refs": ["bramah-2026"]})
     return {"rules": rules, "youth": youth, "injury_reported": injury, "active_symptoms": active,
