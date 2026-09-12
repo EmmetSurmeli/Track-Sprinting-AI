@@ -3,7 +3,6 @@ from pathlib import Path
 from datetime import date
 import hashlib
 import io
-import json
 import os
 import shutil
 import sqlite3
@@ -19,23 +18,22 @@ os.environ.setdefault("MPLCONFIGDIR", str(ROOT / "artifacts" / "cache" / "matplo
 import streamlit as st
 from dotenv import load_dotenv
 
-from track_sprint.artifacts import clean_expired_sessions, delete_session, read_json, stable_hash, write_json
+from track_sprint.artifacts import clean_expired_sessions, read_json, stable_hash, write_json
 from track_sprint.charts import motion_figure
 from track_sprint.calendar_ui import show_calendar
 from track_sprint.contact_ui import show_contacts
-from track_sprint.profile_ui import show_profile_context
 from track_sprint.frame_viewer import show_frame_viewer
 from track_sprint.history import HistoryStore
-from track_sprint.coaching import CoachingError, DEFAULT_MODEL, PROMPT_VERSION, generate_report, library, report_markdown
-from track_sprint.metrics import METRICS
+from track_sprint.movement_ui import show_movement
+from track_sprint.coaching import CoachingError, DEFAULT_MODEL, PROMPT_VERSION, generate_report, library, report_markdown, comparison_text
 from track_sprint.pipeline import PIPELINE_VERSION, load_analysis
-from track_sprint.schemas import AnalysisConfig, AthleteProfile
-from track_sprint.video import VideoError, frame_at, inspect_video
+from track_sprint.schemas import AnalysisConfig
+from track_sprint.video import VideoError, inspect_video
 
 load_dotenv(ROOT / ".env")
-st.set_page_config(page_title="Track Sprint AI · Motion review", page_icon="🏁", layout="wide")
+st.set_page_config(page_title="Track Sprint AI · Motion review", page_icon="🏁", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>
-  .block-container {max-width:1360px; padding-top:2rem; padding-bottom:3rem}
+  .block-container {max-width:1080px; padding-top:2rem; padding-bottom:3rem}
   h1 {font-size:2.65rem!important; letter-spacing:-.07rem; font-weight:650!important}
   h2 {font-size:1.45rem!important; letter-spacing:-.025rem}
   h3 {font-size:1.1rem!important}
@@ -76,7 +74,6 @@ def adopt_source(path, label):
     st.session_state.source_path = str(path)
     st.session_state.source_label = label
     st.session_state.source_info = info
-    st.session_state.demo_selection = False
     st.session_state.pop("analysis_dir", None)
     st.session_state.pop("report", None)
 
@@ -90,7 +87,7 @@ def export_bundle(directory):
     out = io.BytesIO()
     # Whitelist only derived data. Never include uploads, secrets or unrelated local files.
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for name in ("summary.json", "series.json", "manifest.json", "landmarks.npz", "annotated.mp4", "contacts.json", "contact_results.json"):
+        for name in ("summary.json", "series.json", "manifest.json", "landmarks.npz", "annotated.mp4", "contacts.json", "contact_results.json", "movement.json", "movement_review.json", "posture_review.json"):
             path = directory / name
             if path.is_file():
                 z.write(path, name)
@@ -99,307 +96,210 @@ def export_bundle(directory):
     return out.getvalue()
 
 
-with st.sidebar:
-    st.markdown('<div class="eyebrow">TRACK SPRINT AI</div>', unsafe_allow_html=True)
-    st.caption("Your sprint review workspace")
-    if page := st.session_state.pop("pending_workspace", None):
-        st.session_state.workspace_page = page
-    workspace_page = st.radio("Workspace", ["Sprint review", "Calendar & progress"], key="workspace_page")
-    st.markdown("### Athlete profile")
-    event = st.selectbox("Event", ["100 m", "200 m", "400 m", "Other sprint"])
-    experience = st.selectbox("Experience", ["Beginner", "Intermediate", "Experienced"], index=1)
-    goal = st.text_area("What do you want to review?", "Understand my upright sprint mechanics", max_chars=500, height=90)
-    with st.expander("Optional context"):
-        age = st.selectbox("Age band", ["Prefer not to say", "Under 18", "18–24", "25+"])
-        age_years = st.number_input("Age in years (optional)", min_value=10, max_value=100, value=None, step=1)
-        sex = st.selectbox("Sex for research context (optional)", ["Prefer not to say", "Female", "Male", "Another / not represented"],
-                          help="The reviewed studies use sex groups; these are not gender-identity categories or individual technique targets. Nothing is inferred from your video.")
-        height = st.number_input("Height (cm)", min_value=80., max_value=250., value=None, step=1.)
-        weight = st.number_input("Weight (kg)", min_value=20., max_value=250., value=None, step=1.)
-    with st.expander("Injury & current symptoms"):
-        injury_status = st.selectbox("Injury context", ["None reported", "Past injury, no current symptoms", "Current symptoms", "Returning with professional guidance"])
-        injury_region = st.selectbox("Area to discuss", ["Not specified", "Hamstring", "Hip / groin", "Knee", "Calf / Achilles / ankle", "Other"])
-        injury_side = st.selectbox("Reported side", ["Not specified", "Left", "Right", "Both"])
-        injury = st.text_area("Anything affecting training?", max_chars=500, help="Optional. Included in the API request when you generate a report, but not saved in exported input data.")
-        pain = st.checkbox("I have pain during running")
-    profile = AthleteProfile(event=event, experience=experience, goal=goal, age_band=age,
-                             age_years=age_years, sex_for_research=sex, height_cm=height, weight_kg=weight,
-                             injury_context=injury, current_pain=pain, injury_status=injury_status,
-                             injury_region=injury_region, injury_side=injury_side)
-    st.divider()
-    st.markdown("### AI connection")
-    key = st.text_input("OpenAI API key", type="password", placeholder="Enter your project API key",
-                        help="Kept in this browser session. Never written to the project or exported.")
-    api_key = key or os.environ.get("OPENAI_API_KEY", "")
-    st.caption("Key available" if api_key else "Local video analysis works without a key.")
-    with st.expander("Set up an API key"):
-        st.markdown("1. Open [OpenAI Platform](https://platform.openai.com/).\n2. Add a payment method or credits under API billing. ChatGPT billing is separate.\n3. Create a project API key under **API keys**.\n4. Paste it into the private field above.")
-        st.caption("Only Generate coaching makes a paid request. Each report is limited to two attempts and cached for the same analysis and profile.")
-    st.divider()
-    st.caption("Your video and pose tracking stay on this computer. AI generation sends the measurement summary, profile and selected research summaries to OpenAI.")
-    if st.button("Clear this session", width="stretch"):
-        delete_session(session_dir, SESSIONS)
-        st.session_state.clear()
-        st.rerun()
-    st.caption("Temporary files expire after 24 hours of inactivity. Your saved training calendar persists on this computer.")
+from track_sprint.profile_setup import load_profile, show_profile_setup
+from track_sprint.analysis_cache import find_cached_analysis
+from track_sprint.contacts import contact_results, load_contact_review
+from track_sprint.movement import load_movement_evidence
+from track_sprint.posture import posture_evidence
 
-st.markdown('<div class="eyebrow">MOTION LAB</div>', unsafe_allow_html=True)
-st.title("Sprint review" if workspace_page == "Sprint review" else "Calendar & progress")
-st.markdown('<div class="subline">See the movement. Inspect the measurement. Build a better conversation with your coach.</div>', unsafe_allow_html=True)
-if workspace_page == "Calendar & progress":
+PROFILE_PATH = Path(os.environ.get('TRACK_SPRINT_PROFILE_PATH', str(ROOT/'artifacts'/'profile.json')))
+CACHE = ROOT/'artifacts'/'cache'/'analyses'
+profile = load_profile(PROFILE_PATH)
+api_key = os.environ.get('OPENAI_API_KEY', '')
+
+def start_new_video():
+    for name in ('analysis_dir', 'source_path', 'source_info', 'upload_id', 'report', 'report_signature', 'cached_match'):
+        st.session_state.pop(name, None)
+    st.session_state.upload_version = st.session_state.get('upload_version', 0)+1
+    st.session_state.pending_workspace = 'Sprint review'
+
+
+with st.sidebar:
+    st.markdown('### Track Sprint AI')
+    if page := st.session_state.pop('pending_workspace', None):
+        st.session_state.workspace_page = page
+    workspace_page = st.radio('Workspace', ['Sprint review', 'Calendar & progress'], key='workspace_page')
+    if profile:
+        st.caption(f'{profile.event} · {profile.experience}')
+        if st.button('Edit profile', width='stretch'):
+            st.session_state.edit_profile = True
+            st.rerun()
+    with st.expander('Settings'):
+        key = st.text_input('OpenAI API key', type='password', placeholder='Optional override')
+        api_key = key or api_key
+        st.caption('AI connected' if api_key else 'Add a key to enable coaching.')
+        st.caption('Your key stays private. Video processing runs locally.')
+    st.button('New video', width='stretch', on_click=start_new_video)
+
+if profile is None or st.session_state.get('edit_profile'):
+    show_profile_setup(PROFILE_PATH, profile)
+    st.stop()
+
+if workspace_page == 'Calendar & progress':
+    st.title('Your training log')
     show_calendar(history, set_analysis)
     st.stop()
 
-has_result = bool(st.session_state.get("analysis_dir"))
-with st.expander("01  ·  Footage & analysis settings", expanded=not has_result):
-    a, b = st.columns([1.5, 1], gap="large")
-    with a:
-        upload = st.file_uploader("Choose a sprint video", type=["mov", "mp4", "m4v"],
-                                  help="Maximum 100 MB, up to 4K. Select a short, side-on passage after upload.")
-        if upload:
-            identity = hashlib.sha256(upload.getbuffer()).hexdigest()
-            if st.session_state.get("upload_id") != identity:
-                dest = session_dir / f"input-{identity[:16]}.mov"
-                dest.write_bytes(upload.getbuffer())
-                try:
-                    adopt_source(dest, upload.name)
-                    st.session_state.upload_id = identity
-                except VideoError as e:
-                    st.error(str(e))
-                    dest.unlink(missing_ok=True)
-        buttons = st.columns(2)
-        demo_source = ROOT / "artifacts" / "demo_input.mov"
-        if demo_source.exists() and buttons[0].button("Use my demo clip", width="stretch"):
-            dest = session_dir / "input.mov"
-            shutil.copyfile(demo_source, dest)
-            adopt_source(dest, "My local demo clip")
-            st.session_state.demo_selection = True
-            st.rerun()
-        demo = ROOT / "artifacts" / "demo"
-        if (demo / "manifest.json").exists() and buttons[1].button("Open saved analysis", width="stretch"):
-            dest = session_dir / "saved-demo"
-            shutil.copytree(demo, dest, dirs_exist_ok=True)
-            set_analysis(dest)
-            st.rerun()
-    with b:
-        st.markdown("**A useful recording**")
-        st.markdown("- One main athlete, head and feet in view.\n- Camera close to side-on, with minimal roll.\n- A short passage during the sprint phase you want to review.")
-        st.caption("Side-on means you see the runner's profile as they pass across the picture. Slow motion is welcome; capture timing is treated as unverified.")
-    if st.session_state.get("source_path"):
-        path = Path(st.session_state.source_path)
-        info = st.session_state.source_info
-        st.caption(f"{st.session_state.source_label} · {info.width} × {info.height} · decoded duration {info.duration:.2f} s")
-        dstart, dend = (2.55, 3.20) if st.session_state.get("demo_selection") and info.duration > 3.2 else (0.0, min(2.0, info.duration))
-        interval = st.slider("Passage to analyze · decoded media seconds", 0.0, float(round(info.duration, 3)),
-            (dstart, min(dend, float(round(info.duration, 3)))), step=0.01, key=f"interval-{info.sha256}")
-        setting_cols = st.columns(3)
-        direction = setting_cols[0].selectbox("Runner travels", ["Left", "Right"])
-        side = setting_cols[1].selectbox("Camera-facing anatomical side", ["Unknown", "Left", "Right"],
-            help="The athlete's own left/right side, not the side of the screen. Leave Unknown if unsure.")
-        moving = setting_cols[2].checkbox("Camera pans or moves", value=True)
-        log_date = st.date_input("Recording date · saved to your calendar", value=date.today(),
-            min_value=date(1900, 1, 1), max_value=date(2100, 12, 31), key="analysis_date")
-        log_notes = st.text_input("Session note (optional)", max_chars=1000, key="analysis_notes",
-                                placeholder="e.g. Upright sprinting after warm-up; coach asked me to review recovery")
-        st.caption("Completed results are saved locally to this date, including the reviewed video passage. You can edit the date and notes later.")
-        if interval[1] - interval[0] > 10 or interval[1] <= interval[0]:
-            st.warning("Select a positive passage no longer than ten decoded seconds.")
-        else:
+st.markdown('<div class="eyebrow">TRACK SPRINT AI</div>', unsafe_allow_html=True)
+st.title('See your stride. Find your focus.')
+st.caption(f'{profile.event} · {profile.experience}  /  Profile saved')
+
+has_result = bool(st.session_state.get('analysis_dir'))
+with st.expander('Upload another video' if has_result else 'Upload your run', expanded=not has_result):
+    upload = st.file_uploader('Sprint video', type=['mov', 'mp4', 'm4v'], key=f"upload-{st.session_state.get('upload_version', 0)}")
+    if upload:
+        identity = hashlib.sha256(upload.getbuffer()).hexdigest()
+        if st.session_state.get('upload_id') != identity:
+            dest = session_dir/f'input-{identity[:16]}.mov'
+            dest.write_bytes(upload.getbuffer())
             try:
-                previews = st.columns(3)
-                for col, t, label in zip(previews, [interval[0], sum(interval) / 2, max(interval[0], interval[1] - .03)], ["Start", "Middle", "End"]):
-                    i, actual, rgb = frame_at(path, info, t)
-                    col.image(rgb, caption=f"{label} · source frame {i}", width="stretch")
-                if st.button("Analyze passage", type="primary", width="stretch"):
-                    config = AnalysisConfig(start=interval[0], end=interval[1], direction=direction.lower(),
-                                            near_side=side.lower(), camera_moving=moving)
-                    output = session_dir / ("analysis-" + stable_hash({"video": info.sha256, "config": config.model_dump(), "pipeline": PIPELINE_VERSION})[:16])
-                    config_path = session_dir / "config.json"
-                    write_json(config_path, config.model_dump())
-                    if not (output / "manifest.json").exists():
-                        with st.status("Tracking joints and rendering your passage…", expanded=True) as status:
-                            st.write("The first run downloads the local pose model. No API key is needed.")
-                            try:
-                                result = subprocess.run([sys.executable, str(ROOT / "scripts" / "analyze_video.py"),
-                                    str(path), "--config", str(config_path), "--output", str(output)],
-                                    cwd=ROOT, capture_output=True, text=True, timeout=300)
-                                if result.returncode or not (output / "manifest.json").exists():
-                                    status.update(label="Analysis could not finish", state="error")
-                                    st.error("The local video/model runtime failed. Try a shorter, clearer MP4 passage. See README troubleshooting if this repeats.")
-                                else:
-                                    status.update(label="Analysis ready", state="complete")
-                            except subprocess.TimeoutExpired:
-                                st.error("Analysis exceeded five minutes. Select a shorter passage and retry.")
-                    if (output / "manifest.json").exists():
-                        set_analysis(output)
-                        try:
-                            saved_id = history.save(output, log_date, st.session_state.source_label, event, log_notes)
-                            set_analysis(history.directory(saved_id))
-                        except (OSError, ValueError, sqlite3.Error):
-                            st.session_state.log_save_error = "Analysis completed, but calendar storage failed. Your result is still available; use Save to calendar to retry."
-                        st.rerun()
+                adopt_source(dest, upload.name)
+                st.session_state.upload_id = identity
+                match = find_cached_analysis(CACHE, identity) or find_cached_analysis(history.root/"analyses", identity)
+                st.session_state.cached_match = (str(match[0]), match[1]) if match else None
+                st.rerun()
             except VideoError as e:
                 st.error(str(e))
+    if st.session_state.get('source_path') and not st.session_state.get('analysis_dir'):
+        path, info = Path(st.session_state.source_path), st.session_state.source_info
+        st.video(str(path))
+        match = st.session_state.get('cached_match')
+        defaults = match[1] if match else dict(start=0., end=min(5., info.duration), direction='right', near_side='unknown', camera_moving=True)
+        with st.expander('Trim & recording details'):
+            interval = st.slider('Passage to analyze', 0., float(round(info.duration, 3)),
+                (defaults['start'], min(defaults['end'], float(round(info.duration, 3)))), step=.01, key=f'interval-{info.sha256}')
+            a, b = st.columns(2)
+            direction = a.selectbox('Running direction', ['Right', 'Left'], index=int(defaults['direction']=='left'), key=f'direction-{info.sha256}')
+            side = b.selectbox('Camera-facing side', ['Unknown', 'Left', 'Right'], index=['unknown','left','right'].index(defaults['near_side']), key=f'side-{info.sha256}')
+            moving = st.checkbox('Camera moves', defaults['camera_moving'], key=f'moving-{info.sha256}')
+            log_date = st.date_input('Recording date', date.today(), key='analysis_date')
+            st.caption('Choose a clear side-on passage, up to ten media seconds. Leave anatomical side unknown if unsure.')
+        if match:
+            st.caption('This upload matches a previously analyzed recording. Its saved passage can be reused.')
+        valid = 0 < interval[1]-interval[0] <= 10
+        if not valid:
+            st.warning('Choose a passage between zero and ten seconds.')
+        if st.button('Analyze my run', type='primary', width='stretch', disabled=not valid):
+            config = AnalysisConfig(start=interval[0], end=interval[1], direction=direction.lower(), near_side=side.lower(), camera_moving=moving)
+            output = session_dir/('analysis-'+stable_hash({'video':info.sha256, 'config':config.model_dump(), 'pipeline':PIPELINE_VERSION})[:16])
+            reused = bool(match and config.model_dump() == match[1])
+            if reused:
+                shutil.copytree(Path(match[0]), output, dirs_exist_ok=True)
+            elif not (output/'manifest.json').exists():
+                config_path = session_dir/'config.json'
+                write_json(config_path, config.model_dump())
+                with st.spinner('Tracking your movement…'):
+                    try:
+                        completed = subprocess.run([sys.executable, str(ROOT/'scripts'/'analyze_video.py'), str(path),
+                            '--config', str(config_path), '--output', str(output)], cwd=ROOT, capture_output=True, text=True, timeout=300)
+                        if completed.returncode:
+                            st.error('Tracking could not finish. Try a shorter, clearer passage.')
+                    except subprocess.TimeoutExpired:
+                        st.error('Tracking took too long. Try a shorter passage.')
+            if (output/'manifest.json').exists():
+                set_analysis(output)
+                st.session_state.analysis_reused = reused
+                try:
+                    saved_id = history.save(output, log_date, st.session_state.source_label, profile.event)
+                    set_analysis(history.directory(saved_id))
+                except (OSError, ValueError, sqlite3.Error):
+                    st.session_state.log_save_error = 'Your analysis is ready, but it could not be saved to the calendar.'
+                st.rerun()
+    elif not st.session_state.get('analysis_dir'):
+        st.caption('A short side-on clip works best. MOV and MP4 supported.')
 
-if not st.session_state.get("analysis_dir"):
-    st.markdown('<div class="note">Upload a clip to begin. Pose tracking and measurements run locally; generate an AI review when you are ready.</div>', unsafe_allow_html=True)
+if not st.session_state.get('analysis_dir'):
     st.stop()
 
 directory = Path(st.session_state.analysis_dir)
 summary, series = load_analysis(directory)
-if message := st.session_state.pop("log_save_error", None):
+if message := st.session_state.pop('log_save_error', None):
     st.warning(message)
-logged = next((e for e in history.list() if e["id"] == summary["analysis_id"]), None)
-if logged:
-    st.caption(f"Saved to your calendar · {logged['session_date']} · {logged['event']}")
-else:
-    with st.expander("Save this existing result to your calendar"):
-        with st.form("save-existing-result"):
-            existing_date = st.date_input("Recording date", date.today(), min_value=date(1900, 1, 1), max_value=date(2100, 12, 31))
-            existing_title = st.text_input("Session title", "Sprint review", max_chars=120)
-            existing_notes = st.text_area("Session notes / coach feedback", max_chars=1000)
-            if st.form_submit_button("Save to calendar"):
-                try:
-                    saved_id = history.save(directory, existing_date, existing_title or "Sprint review", event, existing_notes)
-                    set_analysis(history.directory(saved_id))
-                    st.rerun()
-                except (OSError, ValueError, sqlite3.Error):
-                    st.error("Could not save the calendar entry. Your analysis is still available; check local disk space and retry.")
-review_side = summary["review_side"]
-metrics = summary["metrics"]
-top = st.columns(4)
-top[0].metric("Frames reviewed", summary["frame_count"])
-top[1].metric("Core joint coverage", f"{summary['core_coverage']:.0%}")
-top[2].metric("Review side", review_side.title())
-top[3].metric("Tracking coverage", summary["quality"].title())
-st.caption("Coverage is the fraction of frames passing visibility and geometry checks. It does not measure angle accuracy.")
-if summary["config"]["near_side"] == "unknown":
-    st.info("Camera-facing side is unconfirmed. The review side was selected from model coverage; confirm it before anatomical interpretation.")
+if st.session_state.get('analysis_reused'):
+    st.caption('Showing saved tracking for this exact upload and passage.')
+st.subheader('Your run, tracked')
+st.video(str(directory/'annotated.mp4'))
+st.caption('Slow playback · track the movement frame by frame below')
 
-review_tab, motion_tab, contact_tab, coach_tab, profile_tab, method_tab = st.tabs(
-    ["02  Frame review", "Motion curves", "Contacts & sides", "03  AI coach", "Profile & research", "Method & evidence"])
-with review_tab:
-    left, right = st.columns(2)
-    left.markdown("**Original passage**")
-    left.video(str(directory / "original.mp4"))
-    right.markdown("**Pose overlay**")
-    right.video(str(directory / "annotated.mp4"))
-    st.caption("Both players show the selected passage at a deliberate 4× slowdown of decoded media time. Players operate independently. Use the frame inspector for exact alignment.")
-    st.subheader("Frame inspector")
-    show_frame_viewer(directory, summary)
-    st.subheader("Positions worth reviewing")
-    if not summary["keyframes"]:
-        st.info("No reliable keyframes in this passage. Try a clearer side-on view.")
-    else:
-        for col, k in zip(st.columns(len(summary["keyframes"])), summary["keyframes"]):
-            col.image(str(directory / "frames" / f"{k['frame_id']:06d}.jpg"), width="stretch")
-            col.button(f"{k['label']} · {k['frame_id']}", key=f"keyframe-{k['index']}",
-                       on_click=jump_to, args=(k["index"],), width="stretch")
-    st.caption("These are observed projected-angle positions, not detected foot-contact events or ideal targets.")
-
-with motion_tab:
-    st.subheader("Movement across the passage")
-    controls = st.columns([2, 1])
-    sides = controls[0].multiselect("Model sides to display", ["left", "right"], default=[review_side])
-    raw = controls[1].toggle("Show raw measurements", value=False)
-    st.plotly_chart(motion_figure(summary, series, sides, summary["frames"][st.session_state.frame_index], raw), width="stretch")
-    st.caption("Dashed lime line = inspected frame. Gaps remain gaps; low-visibility frames are not interpolated. Bilateral curves are descriptive and cannot establish an imbalance.")
-    rows = [{"Measurement": m["label"], "Side": m["side"], "Observed min (°)": m["min"],
-             "Observed max (°)": m["max"], "Valid coverage": f"{m['coverage']:.0%}"}
-            for m in metrics.values() if m["side"] in sides]
-    st.dataframe(rows, hide_index=True, width="stretch")
-    if summary["cycles"]:
-        st.caption("Repeated forward-thigh maxima delimit candidate cycles. They do not identify contact or establish true stride timing.")
-        st.dataframe(summary["cycles"], hide_index=True, width="stretch")
-    else:
-        st.caption("No complete candidate thigh cycle found. Ranges describe only the selected passage.")
-
-with contact_tab:
-    contact_details = show_contacts(directory, summary)
-
-with profile_tab:
-    show_profile_context(profile, library()[0])
-
-with coach_tab:
-    st.subheader("A review you can trace")
-    st.write("Generate a short coaching conversation from the measured passage and a reviewed research library. Each observation links back to source frames and evidence.")
-    if pain:
-        st.info("With current pain, this app offers recording review only. Discuss symptoms and return-to-training decisions with a qualified professional.")
-    st.caption("Only the structured summary, your profile and research summaries are sent to OpenAI. Video frames and the original file stay local. OpenAI's API data policies apply.")
-    signature = stable_hash({"analysis": summary["analysis_id"], "profile": profile.model_dump(), "contacts": contact_details,
-                             "model": DEFAULT_MODEL, "prompt": PROMPT_VERSION})
-    if st.button("Generate coaching", type="primary", disabled=not bool(api_key), width="stretch"):
+contacts = contact_results(summary, load_contact_review(directory, summary)) if (directory/'contacts.json').exists() else {'analysis_id':summary['analysis_id'], 'contacts':[]}
+contacts['posture'] = posture_evidence(directory, summary)
+movement = load_movement_evidence(directory, summary, contacts)
+signature = stable_hash({'analysis':summary['analysis_id'], 'profile':profile.model_dump(), 'contacts':contacts,
+                         'movement':movement, 'model':DEFAULT_MODEL, 'prompt':PROMPT_VERSION})
+saved = st.session_state.get('report') if st.session_state.get('report_signature') == signature else None
+if not saved:
+    if st.button('Explain my technique', type='primary', width='stretch', disabled=not api_key):
         try:
-            with st.spinner("Connecting measured frames to research…"):
-                saved, cached = generate_report(summary, profile, api_key, directory)
-            st.session_state.report = saved
+            with st.spinner('Building your coaching review…'):
+                report, cached = generate_report(summary, profile, api_key, directory)
+            st.session_state.report = report
             st.session_state.report_signature = signature
-            st.success("Loaded the matching saved report. No API call made." if cached else "AI report generated and reference checks passed.")
+            st.session_state.report_cached = cached
+            st.rerun()
         except CoachingError as e:
             st.error(str(e))
     if not api_key:
-        st.info("Add your API key in the sidebar to enable generation. The rest of the app is ready for local review.")
-    saved = st.session_state.get("report") if st.session_state.get("report_signature") == signature else None
-    if saved:
-        report, ctx = saved["report"], saved["context"]
-        st.markdown(report["overview"])
-        st.markdown("**How your profile shaped this review**")
-        st.write(report.get("personalization", ""))
-        sources = {s["id"]: s for s in ctx["evidence"]}
-        acts = {a["id"]: a for a in ctx["activities"]}
-        for n, item in enumerate(report["observations"]):
-            with st.container(border=True):
-                st.markdown(f"### {item['title']}")
-                st.write(item["explanation"])
-                for ref in item["metric_refs"]:
-                    m = ctx["facts"][ref]
-                    unit = "°" if m.get("units", "degrees") == "degrees" else " " + m["units"]
-                    quality_note = (f"{m['count']} user-reviewed contacts; see Contacts & sides for timing bounds"
-                                    if m["metric"] == "contact_time" else f"{m['coverage']:.0%} valid coverage")
-                    st.caption(f"Measured · {m['side']} {m['label']} · {m['min']}–{m['max']}{unit} in this passage · {quality_note}")
-                for fid in item["frame_refs"]:
-                    st.button(f"Inspect source frame {fid}", key=f"report-{n}-{fid}", on_click=jump_to,
-                              args=(summary["frames"].index(fid),))
-                st.caption("Use the Frame review tab to see the selected frame.")
-                st.info(item["uncertainty"])
-                for ref in item["evidence_refs"]:
-                    s = sources[ref]
-                    st.markdown(f"[{s['authors']} · {s['year']} — {s['title']}]({s['url']})")
-                    st.caption(s["limitations"])
-                for kind in ("cue", "drill", "exercise"):
-                    if ref := item[f"{kind}_id"]:
-                        a = acts[ref]
-                        st.markdown(f"**{kind.title()} for coach discussion · {a['title']}**")
-                        st.write(a["text"])
-        st.markdown("**Next review**")
-        st.write(report["next_review"])
-        st.caption(f"Generated with OpenAI {saved['provenance']['model']}. References are checked by software; research interpretation still needs human review.")
-        st.download_button("Download coaching report", report_markdown(saved), "sprint-review.md", "text/markdown")
+        st.caption('Add your API key in Settings to get coaching.')
 
-with method_tab:
-    st.subheader("What this app measures")
-    st.write("MediaPipe estimates joints on each decoded frame. Python converts normalized points to aspect-correct pixels, rejects low-visibility geometry, then calculates projected angles. A centered five-frame filter smooths valid spans without filling missing data.")
-    st.markdown("- **Knee flexion:** straight leg is zero; bending increases the angle.\n- **Trunk–thigh flexion:** signed angle from the downward trunk direction to the thigh; forward is positive. This is a hip-angle proxy.\n- **Trunk / frame vertical:** shoulder–hip orientation relative to the image's vertical.\n- **Thigh / downward vertical:** hip–knee orientation relative to downward image vertical; forward is positive.")
-    with st.expander("About the measurements"):
-        st.write("Angles describe the movement visible in this camera view. Camera position and joint visibility affect the result. Shoe-contact timing uses the transitions you review and a verified video timeline.")
-        for warning in summary["warnings"]:
-            st.caption("• " + warning)
-    st.subheader("Research library")
-    evidence, _ = library()
-    for s in evidence["sources"]:
-        with st.expander(f"{s['authors']} · {s['year']} · {s['title']}"):
-            st.caption(s["type"] + " · " + s["location"] + " paraphrase")
-            st.write(s["summary"])
-            st.caption(s["population"])
-            st.info(s["limitations"])
-            st.link_button("Read source", s["url"])
-    st.subheader("Reproducibility")
-    st.json(read_json(directory / "manifest.json"), expanded=False)
-    st.caption("Video, model and configuration hashes bind the saved result to its inputs. No LLM computes or edits the measurement files.")
+if saved:
+    report, context = saved['report'], saved['context']
+    acts = {a['id']:a for a in context['activities']}
+    st.subheader('Technique analysis')
+    st.write(report['overview'])
+    st.subheader('What it means')
+    for item in report['observations']:
+        st.markdown(f"**{item['title']}**")
+        st.write(item['explanation'])
+    if not report['observations']:
+        st.write('This passage needs clearer tracking before a technique finding can be made.')
+    st.subheader('Your focus')
+    cue_ids = list(dict.fromkeys(i['cue_id'] for i in report['observations'] if i['cue_id']))
+    for ref in cue_ids:
+        st.markdown(f"**{acts[ref]['title']}**")
+        st.write(acts[ref]['text'])
+    if not cue_ids:
+        st.write(report['next_review'])
+    st.subheader('Training to discuss')
+    training = list(dict.fromkeys(i[k] for i in report['observations'] for k in ('drill_id','exercise_id') if i[k]))
+    for ref in training:
+        st.markdown(f"**{acts[ref]['title']}**")
+        st.write(acts[ref]['text'])
+    if not training:
+        st.write('Start with the technique focus above. This recording does not support a specific strength program.' if not profile.current_pain and profile.injury_status == 'None reported' else report['next_review'])
+    with st.expander('Why this feedback? Measurements & sources'):
+        st.write(report['personalization'])
+        sources = {s['id']:s for s in context['evidence']}
+        for n, item in enumerate(report['observations']):
+            st.markdown(f"**{item['title']}**")
+            for ref in item['metric_refs']:
+                m = context['facts'][ref]
+                value = f"{m['min']:g}" if m['min']==m['max'] else f"{m['min']:g}–{m['max']:g}"
+                st.caption(f"{m['side']} · {m['label']} · {value} {m.get('units','degrees')}")
+            for fid in item['frame_refs']:
+                st.button(f'Inspect source frame {fid}', key=f'report-{n}-{fid}', on_click=jump_to, args=(summary['frames'].index(fid),))
+            st.caption(item['uncertainty'])
+            for ref in item['evidence_refs']:
+                s = sources[ref]
+                st.markdown(f"[{s['authors']} · {s['year']}]({s['url']})")
+        st.caption(f"{'Saved AI report' if st.session_state.get('report_cached') else 'Generated with AI'} · {saved['provenance']['model']}")
+    st.download_button('Download coaching', report_markdown(saved), 'sprint-review.md', 'text/markdown')
+    st.button('Upload next video', width='stretch', on_click=start_new_video)
 
-st.divider()
-downloads = st.columns(3)
-downloads[0].download_button("Download annotated video", (directory / "annotated.mp4").read_bytes(), "sprint-overlay.mp4", "video/mp4", width="stretch")
-downloads[1].download_button("Download measurements", (directory / "summary.json").read_bytes(), "sprint-measurements.json", "application/json", width="stretch")
-downloads[2].download_button("Download analysis bundle", export_bundle(directory), "sprint-analysis.zip", "application/zip", width="stretch")
-st.caption("TRACK SPRINT AI · Review your movement. Follow your progress.")
+with st.expander('Explore your tracking & data'):
+    st.subheader('Frame by frame')
+    show_frame_viewer(directory, summary)
+    with st.expander('Original video'):
+        st.video(str(directory/'original.mp4'))
+    with st.expander('Leg & arm motion'):
+        show_movement(directory, summary, jump_to)
+    with st.expander('Landing position & contact timing'):
+        show_contacts(directory, summary)
+    with st.expander('All measurements'):
+        st.plotly_chart(motion_figure(summary, series, [summary['review_side']], summary['frames'][st.session_state.get('frame_index',0)], False), width='stretch')
+        st.dataframe([{'Measurement':m['label'], 'Side':m['side'], 'Min (°)':m['min'], 'Max (°)':m['max'], 'Coverage':f"{m['coverage']:.0%}"} for m in summary['metrics'].values()], hide_index=True)
+        st.caption('Projected measurements; tracking coverage does not establish anatomical accuracy.')
+        for warning in summary['warnings']:
+            st.caption(warning)
+    downloads = st.columns(2)
+    downloads[0].download_button('Tracked video', (directory/'annotated.mp4').read_bytes(), 'sprint-overlay.mp4','video/mp4')
+    downloads[1].download_button('Analysis data', export_bundle(directory), 'sprint-analysis.zip','application/zip')

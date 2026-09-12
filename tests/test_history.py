@@ -123,3 +123,21 @@ def test_contact_history_deltas_preserve_bounds_and_require_compatible_results()
     new["event"] = "100 m"
     new["contact_results"]["comparison"] = None
     assert compare_contact_sessions(new, old) == []
+
+
+def test_explicit_resave_refreshes_reviews_and_reports(tmp_path, source):
+    store = HistoryStore(tmp_path/'history')
+    identity = store.save(source, date.today(), 'Run', '100 m')
+    write_json(source/'posture_review.json', {'frame':155, 'geometry_checked':True})
+    (source/'reports').mkdir()
+    write_json(source/'reports'/'report.json', {'report':'Test report, not actual coaching'})
+    store.save(source, date.today(), 'Run', '100 m')
+    archived = store.directory(identity)
+    assert json.loads((archived/'posture_review.json').read_text())['frame'] == 155
+    assert (archived/'reports'/'report.json').exists()
+    # Saving directly from the archive must not copy a file onto itself.
+    store.save(archived, date.today(), 'Run', '100 m')
+    (source/'posture_review.json').unlink()
+    store.save(source, date.today(), 'Run', '100 m')
+    assert not (archived/'posture_review.json').exists()
+    assert not (archived/'.env').exists()

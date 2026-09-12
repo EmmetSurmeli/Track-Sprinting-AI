@@ -4,7 +4,7 @@ A local sprint-video review app built for a Cornell Generative AI Club applicati
 
 **Pose tracking finds joints. Python calculates measurements. The LLM explains the resulting evidence.** The model never invents angles from the video.
 
-This is an MVP for a local demonstration and source-code review. It is not a publicly deployed service or a validated biomechanics instrument. The deterministic pipeline, UI, and live AI coaching run on the author's demonstration video. Five of six live acceptance scenarios passed; active-symptom generation remains unreliable and is blocked by report checks. See [live acceptance results](docs/LLM_ACCEPTANCE.md) and [validation status](docs/VALIDATION.md).
+Built for a local demonstration and source-code review, this app runs the deterministic pipeline, UI, and live AI coaching on the author's demonstration video. Expanded acceptance testing covers fifteen scenarios, including current symptoms, body/sex context, contact comparisons, poor tracking and adversarial requests. It is not a validated biomechanics instrument. See [live acceptance results](docs/LLM_ACCEPTANCE.md) and [validation status](docs/VALIDATION.md).
 
 ## Run locally
 
@@ -25,32 +25,27 @@ For editable development, use `python -m pip install -e '.[dev]'`. The entry poi
 
 ## Use it
 
-1. Upload your own MOV, MP4 or M4V under 100 MB and up to 4K. Keep the athlete's full body visible and choose an approximately side-on upright passage. A steady camera is preferable.
-2. Select a short interval, up to ten **decoded media seconds**. Slow-motion phone files can have different decoder and player timelines. Start/middle/end previews show the actual selected source frames.
-3. Set travel direction and, if known, the athlete's camera-facing anatomical side. Leave the side unknown when unsure. Mark camera movement honestly.
-4. Analyze. Review the original and annotated passage, scrub frames, and open the motion curves. Gray joints fail visibility checks; missing measurements stay missing.
-   Completed analyses are automatically saved to **Calendar & progress**, using today's date or the recording date you select. Add session notes or coach feedback, browse any month/year, reopen saved analyses and compare with previous sessions. An existing result can be added with **Save to calendar**.
-5. In **Contacts & sides**, scrub the original footage and use **Set touchdown here** / **Set toe-off here** to mark the frame you are viewing. Choose which foot you followed, then check both transition pairs before saving. The selections start empty and are not automatic detections. Milliseconds require a verified real-time mapping. Side comparisons require confirmed anatomical labels, at least two clear contacts per side, and sufficiently small timing brackets. Annotations save with the analysis; eligible contact means and uncertainty also appear in the calendar.
-6. Fill in optional age, height, weight, research sex category, experience and injury context. **Profile & research** explains how those details affect the AI request and which research applies. These fields do not create an ideal angle or diagnose a weak muscle.
-7. Enter an API key privately and select **Generate coaching**. Inspect the personalized explanation, cited frames and research caveats before using any suggestions.
-8. Download the annotated MP4, measurement JSON, coaching Markdown, or analysis ZIP. The ZIP includes saved contact annotations and derived timing results.
+1. Enter your sprint profile once. It is stored privately in ignored `artifacts/profile.json`; **Edit profile** is available in the sidebar.
+2. Upload your MOV, MP4 or M4V. Use **Trim & recording details** to change the passage, travel direction, side or recording date.
+3. Click **Analyze my run**. The primary result is one video with body tracking.
+4. Click **Explain my technique**. Feedback appears as **Technique analysis → What it means → Your focus → Training to discuss**.
+5. Open **Explore your tracking & data** only when you want frame scrubbing, leg/arm curves, landing review, contact timing or downloads. Measurements and citations are also available under **Why this feedback?**
+6. Use **New video** to upload another recording without re-entering your profile. Completed analyses are saved in **Calendar & progress**.
 
-The original file is not modified. Both exported video players show the selected passage at a deliberate fourfold slowdown of the decoder timeline. Their playback is independent; the frame slider provides exact correspondence with measurements and chart cursors.
+There are no preset-video buttons. An exact matching upload may reuse a genuine completed analysis and its selected passage; the UI labels this reuse. Profile, review and model/prompt changes invalidate the relevant coaching cache. A fresh clone starts with profile setup and an empty upload screen.
 
-The frame inspector loads compressed previews into the browser, then updates the image and measurements as you drag. Use arrow keys for single frames or Shift + arrow for ten-frame steps. Releasing the slider updates the motion-chart cursor; dragging itself does not rerun the Python app. Initial preview preparation happens once per cached analysis.
-
-The author's private demo input and derived media are intentionally excluded from GitHub. A fresh clone starts with an upload screen. The local **Use my demo clip** / **Open saved analysis** shortcuts appear only when the corresponding ignored artifacts exist.
+The original file is not modified. Playback is deliberately slowed relative to decoded media time. Timing remains unverified unless the recording/export mapping is confirmed. The frame inspector updates locally as you drag and supports arrow-key stepping.
 
 ## Set up the generative AI connection
 
 1. Sign in at [OpenAI Platform](https://platform.openai.com/).
 2. Open API billing and add the payment method or credits required for your account. API billing is separate from a ChatGPT subscription. [Official billing guide](https://help.openai.com/en/articles/9039756-managing-billing-settings-on-chatgpt-web-and-platform).
 3. Create a project API key from the platform's API keys page. Copy it into the app's **OpenAI API key** password field. Do not paste it into chat, source code, screenshots, or a Git commit.
-4. Select **Generate coaching** on a completed analysis. If the app reports a billing/rate limit, check the platform's billing and usage pages.
+4. Select **Explain my technique** on a completed analysis. If the app reports a billing/rate limit, check the platform's billing and usage pages.
 
 Alternatively, copy `.env.example` to `.env` and set `OPENAI_API_KEY` locally. `.env` is ignored. The sidebar field keeps the key only in the current app session. A ChatGPT/Codex usage reset does not create API credits.
 
-The app uses `gpt-5.4-mini` with the Responses API and a strict structured-output schema. A click makes one request, with at most one extra repair request after a validation failure. Automatic SDK retries are disabled; each attempt is capped at 2,500 output tokens and a 45-second client timeout. A client timeout does not guarantee the provider stops processing. Matching completed reports are cached. Repeated profile changes can still create new paid requests. See current [model documentation and pricing](https://developers.openai.com/api/docs/models/gpt-5.4-mini).
+The app uses `gpt-5.6-terra` with low reasoning effort, the Responses API, and a structured-output schema that constrains each observation to its eligible measurements, frames, sources, and activities. A click makes one request, with at most one extra repair request after a validation failure. Automatic SDK retries are disabled; each attempt is capped at 2,500 output tokens and a 45-second client timeout. A client timeout does not guarantee the provider stops processing. Matching completed reports are cached. Repeated profile changes can still create new paid requests. See current [model documentation and pricing](https://developers.openai.com/api/docs/models/gpt-5.6-terra).
 
 No report is fabricated when the API is unavailable. Cached reports retain real generation provenance; mock model responses exist only inside automated tests.
 
@@ -58,7 +53,7 @@ No report is fabricated when the API is unavailable. Cached reports retain real 
 
 Pose inference, original footage, extracted frames and landmarks stay local. Only the computed summary, reviewed contact results, optional athlete profile and selected research summaries are sent to OpenAI when generation is requested. The request sets `store=False`; this does not imply zero provider retention. [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data).
 
-The key and raw input profile are excluded from saved reports and downloads. Saved personalization rules and generated prose can still reveal profile context, including whether youth or injury constraints applied; review exports before sharing. Derived artifacts live in `artifacts/`. **Clear this session** removes temporary browser-session files. Your calendar, session notes and archived analysis passages persist under `artifacts/history/`, separate from temporary cleanup, saved demo artifacts and downloaded exports. Expired temporary directories are cleaned when a later session starts. This is an ordinary filesystem deletion, not a secure-erasure guarantee.
+The key and raw input profile are excluded from saved reports and downloads. The onboarding profile is stored separately in a local file with owner-only permissions. Saved personalization rules and generated prose can still reveal profile context, including whether youth or injury constraints applied; review exports before sharing. Derived artifacts live in `artifacts/`. **New video** resets the active upload while preserving your profile and calendar. Your calendar, session notes and archived analysis passages persist under `artifacts/history/`, separate from temporary cleanup, saved demo artifacts and downloaded exports. Expired temporary directories are cleaned when a later session starts. This is an ordinary filesystem deletion, not a secure-erasure guarantee.
 
 The calendar is one local training log for the same athlete; it does not identify people across uploads. Re-saving the same analysis updates its date/title/notes instead of adding duplicates. Date changes reorder the history. Comparisons show observed minimum/maximum angle differences and trends, with no automatic better/worse score: angle changes can reflect camera viewpoint, selected sprint phase or pose error. Event, side, processing method and visibility checks restrict comparisons. Camera-relative orientation metrics are omitted from comparisons when either camera moves. Export the training log as JSON from the calendar page.
 
@@ -92,7 +87,7 @@ src/track_sprint/
   contacts.py / contact_ui.py   Reviewed shoe transitions, timing bounds, side differences
   personalization.py           Profile rules and research applicability
   profile_ui.py                Profile effects and injury-aware research discussion
-  data/                        Fifteen reviewed research summaries and activity catalog
+  data/                        Seventeen reviewed research summaries and activity catalog
 scripts/                       CLI analysis, decoding inspection, artifact verification
 tests/                         Offline unit/integration tests
 docs/                          Design, validation, walkthrough and demo preparation
@@ -116,3 +111,7 @@ The [biomechanics roadmap](docs/BIOMECHANICS_ROADMAP.md) distinguishes implement
 ## Credits
 
 MediaPipe/BlazePose supplies pretrained pose estimation; this project does not train a pose model. Research sources are linked individually in the app and [third-party notes](THIRD_PARTY.md). AI coding assistance was used in building this MVP; the application author should be able to explain and verify the delivered code. The distinctive product work is the review workflow, deterministic measurement boundary, uncertainty handling and traceable generative explanation.
+
+### Second-clip demonstration
+
+Upload either supplied recording yourself. The second has a prepared five-second passage and an inspectable landing-position review. Ankle-to-hip placement and knee bend are computed from accepted landmarks at the selected frame and sent to the LLM together; they do not imply automatic touchdown detection. See the [second-clip walkthrough](docs/SECOND_CLIP_DEMO.md), [real generated example](docs/examples/second-clip-review.md), and [movement audit](docs/MOVEMENT_AUDIT.md). Private recordings and local reports are ignored by Git; a fresh clone can analyze the reviewer's own upload.

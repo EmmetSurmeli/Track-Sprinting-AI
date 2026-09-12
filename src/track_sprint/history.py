@@ -37,7 +37,7 @@ class HistoryStore:
         return self.root / "analyses" / analysis_id
 
     def save(self, source: Path, session_date: date, label: str, event: str, notes=""):
-        """Save once per computed analysis; repeated saves edit its log metadata."""
+        """Archive immutable measurements once; refresh reviews on explicit resave."""
         summary = read_json(source / "summary.json")
         manifest = read_json(source / "manifest.json")
         identity = summary["analysis_id"]
@@ -54,7 +54,7 @@ class HistoryStore:
                 shutil.copytree(source / "frames", staging / "frames")
                 if (source / "reports").is_dir():
                     shutil.copytree(source / "reports", staging / "reports")
-                for name in ("contacts.json", "contact_results.json"):
+                for name in ("contacts.json", "contact_results.json", "movement_review.json", "posture_review.json"):
                     if (source / name).exists():
                         shutil.copyfile(source / name, staging / name)
                 try:
@@ -65,10 +65,26 @@ class HistoryStore:
             finally:
                 if staging.exists():
                     shutil.rmtree(staging)
+        elif source.resolve() != destination.resolve():
+            # A session may add/remove annotations after its first calendar save.
+            # Preserve measurement files, but make the explicitly saved review current.
+            for name in ("contacts.json", "contact_results.json", "movement_review.json", "posture_review.json", "manifest.json"):
+                if (source / name).exists():
+                    temporary = destination / ("pending-" + uuid.uuid4().hex)
+                    try:
+                        shutil.copyfile(source / name, temporary)
+                        temporary.replace(destination / name)
+                    finally:
+                        temporary.unlink(missing_ok=True)
+                elif name != "manifest.json":
+                    (destination / name).unlink(missing_ok=True)
+            if (source / "reports").is_dir():
+                shutil.copytree(source / "reports", destination / "reports", dirs_exist_ok=True)
         with self.connect() as db:
             db.execute("""INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET session_date=excluded.session_date,
-                label=excluded.label, event=excluded.event, notes=excluded.notes""",
+                label=excluded.label, event=excluded.event, notes=excluded.notes,
+                manifest_json=excluded.manifest_json""",
                 (identity, date.fromisoformat(str(session_date)).isoformat(), label[:120], event[:40],
                  notes[:1000], datetime.now(timezone.utc).isoformat(),
                  json.dumps(summary, allow_nan=False), json.dumps(manifest, allow_nan=False)))

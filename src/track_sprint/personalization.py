@@ -21,4 +21,4 @@ def profile_guidance(profile: AthleteProfile):
     if active:
         rules.append({"id": "active_symptoms", "effect": "Keep the review observational. No training progression, corrective drill, loading advice or clearance to sprint; return-to-sport decisions belong with the treating professional.", "evidence_refs": ["bramah-2026"]})
     return {"rules": rules, "youth": youth, "injury_reported": injury, "active_symptoms": active,
-            "activities_allowed": not (youth or injury)}
+            "activities_allowed": not injury}

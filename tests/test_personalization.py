@@ -10,7 +10,7 @@ def test_demographic_profile_selects_applicable_sources_without_angle_targets():
     guidance = profile_guidance(profile)
     ids = {r["id"] for r in guidance["rules"]}
     assert {"youth", "sex_context", "body_size"}.issubset(ids)
-    assert not guidance["activities_allowed"]
+    assert guidance["activities_allowed"]
     evidence, _ = library()
     available = {s["id"] for s in evidence["sources"]}
     assert all(set(r["evidence_refs"]).issubset(available) for r in guidance["rules"])

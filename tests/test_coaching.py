@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from track_sprint.coaching import CoachingError, build_context, generate_report, validate_grounding
+from track_sprint.coaching import CoachingError, build_context, generate_report, validate_grounding, response_schema, unsupported_phrase
 from track_sprint.schemas import AthleteProfile, CoachingReport
 
 
@@ -88,7 +88,87 @@ def test_injury_context_may_acknowledge_area_but_not_quote_narrative(summary, va
         validate_grounding(valid_report, context)
 
 
-@pytest.mark.parametrize("profile", [AthleteProfile(current_pain=True), AthleteProfile(injury_context="Past issue"), AthleteProfile(age_band="Under 18")])
+def test_unconfirmed_side_cannot_be_presented_as_confirmed(summary, valid_report):
+    context = build_context(summary, AthleteProfile())
+    context["camera_facing_side_confirmed"] = False
+    valid_report.overview = "Use this as a side-confirmed, passage-level review."
+    with pytest.raises(ValueError, match="Anatomical side is unconfirmed"):
+        validate_grounding(valid_report, context)
+    valid_report.overview = "This uses model-labelled measurements; the anatomical side is unconfirmed."
+    assert validate_grounding(valid_report, context)
+    valid_report.overview = "This is not a side-confirmed review."
+    assert validate_grounding(valid_report, context)
+    valid_report.overview = "This is not a side-confirmed review, but use it as a side-confirmed assessment."
+    with pytest.raises(ValueError, match="Anatomical side is unconfirmed"):
+        validate_grounding(valid_report, context)
+    context["camera_facing_side_confirmed"] = True
+    valid_report.overview = "Use this as a side-confirmed, passage-level review."
+    assert validate_grounding(valid_report, context)
+
+
+def test_generation_schema_distinguishes_profile_rules_from_study_ids(summary, valid_report):
+    schema = response_schema(build_context(summary, AthleteProfile()))
+    assert schema.model_validate(valid_report.model_dump())
+    data = valid_report.model_dump()
+    data["personalization_refs"] = ["wade-2023"]
+    with pytest.raises(ValueError):
+        schema.model_validate(data)
+    data = valid_report.model_dump()
+    data["observations"][0]["evidence_refs"] = ["clark-2020"]  # Thigh-motion source cannot be attached to knee-only observation.
+    with pytest.raises(ValueError):
+        schema.model_validate(data)
+    data = valid_report.model_dump()
+    data["observations"][0]["frame_refs"] = [999]
+    with pytest.raises(ValueError):
+        schema.model_validate(data)
+
+
+def test_generation_schema_enforces_symptom_next_step_and_no_activities(summary, valid_report):
+    context = build_context(summary, AthleteProfile(current_pain=True))
+    schema = response_schema(context)
+    data = valid_report.model_dump()
+    data["personalization_refs"] = ["injury_context", "active_symptoms"]
+    data["observations"][0]["cue_id"] = None
+    with pytest.raises(ValueError):
+        schema.model_validate(data)
+    data["next_review"] = context["next_review_required"]
+    assert schema.model_validate(data)
+    data["observations"][0]["drill_id"] = "drill-march"
+    with pytest.raises(ValueError):
+        schema.model_validate(data)
+
+
+def test_generation_schema_prohibits_observations_without_usable_tracking(summary, valid_report):
+    summary["quality"] = "insufficient"
+    schema = response_schema(build_context(summary, AthleteProfile()))
+    with pytest.raises(ValueError):
+        schema.model_validate(valid_report.model_dump())
+
+
+@pytest.mark.parametrize("text", [
+    "This is not a diagnosis.",
+    "The side difference cannot identify muscle capacity, injury risk, or performance effect.",
+    "An ideal angle cannot be established from these data.",
+    "The data do not establish a cause, a particular weak muscle, or a target.",
+])
+def test_explicit_limitations_are_not_mistaken_for_diagnoses(text):
+    assert unsupported_phrase(text) is None
+
+
+@pytest.mark.parametrize("text", [
+    "You have weak hamstrings.",
+    "This cannot identify a cause, but you have weak hamstrings.",
+    "You are not fast because of weak muscles.",
+    "The video cannot rule out weak hamstrings.",
+    "Your ideal angle is obvious.",
+    "Your injury risk is high.",
+    "This is not only a diagnosis, it is certain.",
+])
+def test_affirmative_or_ambiguous_unsupported_claims_remain_blocked(text):
+    assert unsupported_phrase(text) is not None
+
+
+@pytest.mark.parametrize("profile", [AthleteProfile(current_pain=True), AthleteProfile(injury_context="Past issue")])
 def test_sensitive_context_suppresses_activity_catalog(summary, profile):
     assert build_context(summary, profile)["activities"] == []
 
@@ -175,3 +255,43 @@ def test_actual_sdk_serializes_schema_and_parses_response_offline(tmp_path, summ
     assert requests[0]["text"]["format"]["type"] == "json_schema"
     assert requests[0]["text"]["format"]["strict"] is True
     assert saved["report"]["observations"][0]["frame_refs"] == [15]
+
+
+def test_future_side_confirmation_is_not_a_claim_about_this_clip(summary, valid_report):
+    context = build_context(summary, AthleteProfile())
+    context['camera_facing_side_confirmed'] = False
+    valid_report.next_review = 'Record a consistent side-on view and review several consecutive landings with the camera-facing side confirmed.'
+    validate_grounding(valid_report, context)
+    valid_report.overview = 'Record another pass. This is a side-confirmed assessment.'
+    with pytest.raises(ValueError, match='side is unconfirmed'):
+        validate_grounding(valid_report, context)
+
+
+def test_verdict_denial_is_scoped_to_its_clause():
+    assert unsupported_phrase('Use this to guide review, not a verdict about performance, weak glutes, or power loss.') is None
+    assert unsupported_phrase('This is not a verdict about posture, but weak glutes cause your landing.')
+
+
+def test_healthy_youth_gets_coordination_but_no_strength_prescription(summary):
+    context = build_context(summary, AthleteProfile(age_years=16))
+    assert any(a['kind'] == 'drill' for a in context['activities'])
+    assert all(a['kind'] in ('cue','drill') for a in context['activities'])
+    assert not build_context(summary, AthleteProfile(age_years=16,current_pain=True))['activities']
+
+
+def test_rather_than_diagnosis_is_a_denial_not_a_diagnosis():
+    assert unsupported_phrase('Review this rather than treating it as a diagnosis.') is None
+    assert unsupported_phrase('Review this rather than assuming a broad technical diagnosis.') is None
+    assert unsupported_phrase('Rather than assuming a diagnosis, my diagnosis is weak glutes.')
+
+
+def test_explicit_target_and_inference_denials():
+    assert unsupported_phrase('These associations do not set ideal angles for your sprint.') is None
+    assert unsupported_phrase('Review the phase, without inferring weak glutes from the video.') is None
+    assert unsupported_phrase('These do not set ideal angles, but your ideal angle is obvious.')
+
+
+def test_rather_than_targets_and_diagnosis():
+    assert unsupported_phrase('Focus on review rather than exact ideal angles.') is None
+    assert unsupported_phrase('Use a whole-stride check rather than ideal positions or a diagnosis.') is None
+    assert unsupported_phrase('Rather than ideal positions, your diagnosis is muscle weakness.')

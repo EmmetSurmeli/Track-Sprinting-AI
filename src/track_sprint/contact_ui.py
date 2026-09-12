@@ -7,6 +7,49 @@ import streamlit as st
 from .contacts import contact_results, load_contact_review, sampled_side_differences, save_contact_review
 from .schemas import ContactMark
 from .frame_viewer import show_frame_viewer
+from .artifacts import read_json, write_json
+from .posture import PostureReview, posture_evidence
+
+
+def show_landing_posture(directory, summary):
+    st.markdown("**Landing position**")
+    st.caption("Choose a visible landing position in the original footage. This measures posture at that frame; it does not mark the exact start of contact.")
+    path = directory / "posture_review.json"
+    saved = PostureReview.model_validate(read_json(path)) if path.exists() else None
+    suffix = summary["analysis_id"][:16]
+    with st.expander("Select or change landing position", expanded=saved is None):
+        cols = st.columns(2)
+        side = cols[0].selectbox("Landing model side", ["left", "right"],
+            index=["left", "right"].index(saved.side) if saved else None, key=f"landing-side-{suffix}")
+        frame = cols[1].selectbox("Landing source frame", summary["frames"],
+            index=summary["frames"].index(saved.frame) if saved else None, key=f"landing-frame-{suffix}")
+        if side is not None and frame is not None:
+            index = summary["frames"].index(frame)
+            originals, _ = boundary_images(directory, [index], side)
+            st.image(originals[index], caption=f"Original · source frame {frame}", width="stretch")
+            overlay = directory / "frames" / f"{frame:06d}.jpg"
+            if overlay.exists():
+                st.image(str(overlay), caption="Check the tracked hip, knee and ankle against the original", width="stretch")
+            checked = st.checkbox("I checked the landing position and the hip, knee and ankle tracking", value=bool(saved and saved.geometry_checked), key=f"landing-checked-{suffix}")
+            if st.button("Save landing position", disabled=not checked, key=f"landing-save-{suffix}"):
+                review = PostureReview(analysis_id=summary["analysis_id"], side=side, frame=frame, geometry_checked=checked)
+                result = posture_evidence(directory, summary, review)
+                if not result["available"]:
+                    st.warning(result.get("reason", "Tracking is insufficient at this position."))
+                else:
+                    write_json(path, review.model_dump())
+                    st.rerun()
+        if saved and st.button("Remove landing position", key=f"landing-remove-{suffix}"):
+            path.unlink()
+            st.rerun()
+    result = posture_evidence(directory, summary)
+    if result["available"]:
+        facts = list(result["facts"].values())
+        a, b = st.columns(2)
+        a.metric("Ankle ahead of hip", f"{facts[0]['min']:.1f}%", help="Positive is forward along the image horizontal; normalized by projected thigh plus shank length.")
+        b.metric("Knee bend at landing", f"{facts[1]['min']:.1f}°")
+        st.caption(f"Source frame {saved.frame} · model-labelled {saved.side} · one selected posture. Forward placement alone is not an overstriding verdict.")
+    return result
 
 
 def boundary_images(directory, indices, side):
@@ -88,6 +131,7 @@ def mark_contact(directory, summary, review, suffix):
 
 def show_contacts(directory, summary):
     st.subheader("Contact time & side differences")
+    posture = show_landing_posture(directory, summary)
     st.write("Use the shoes to review touchdown and toe-off for each side. Foot landmarks help locate the view; they do not detect individual spikes or prove ground contact.")
     review = load_contact_review(directory, summary)
     frames = summary["frames"]
@@ -140,4 +184,4 @@ def show_contacts(directory, summary):
         st.markdown("- **Measurement and recording:** viewpoint, hidden shoe contact, side-label errors, selected stride phase or export timing.\n- **Coordination or fatigue:** repeat the recording in comparable conditions before attributing a change to capacity.\n- **Pain or prior injury:** movement may be modified; a reported history is context, not proof of a cause.\n- **Strength capacity:** a professional could independently assess calf/ankle plantarflexors, knee flexors/hamstrings, and hip musculature where appropriate. A contact-time difference cannot tell which group is weak or which side needs strengthening.")
         st.markdown("[Research on task-specific strength and sprint asymmetry](https://pubmed.ncbi.nlm.nih.gov/27671707/)")
     st.caption("Compare repeated contacts at a similar sprint phase and speed. Shorter contact alone does not establish improvement.")
-    return result
+    return {**result, "posture": posture}

@@ -18,7 +18,7 @@ from track_sprint.contacts import save_contact_review
 from track_sprint.schemas import AthleteProfile, ContactMark, ContactReview
 
 OUT = ROOT / "artifacts" / "live_eval"
-CAP_USD = 3.0
+CAP_USD = 5.0  # User lifted the $3 ceiling; retain a finite cumulative test guard.
 PRICES = {"gpt-5.4-mini": (.75, 4.5), "gpt-5.6-terra": (2.5, 12.0)}  # Terra includes possible cache-write uplift.
 
 

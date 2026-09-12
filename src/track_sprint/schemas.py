@@ -58,7 +58,7 @@ class CoachingReport(StrictModel):
     overview: str = Field(max_length=600)
     observations: list[Observation] = Field(max_length=3)
     next_review: str = Field(max_length=500)
-    personalization: str = Field(max_length=800)
+    personalization: str = Field(min_length=1, max_length=1200)
     personalization_refs: list[str] = Field(min_length=1, max_length=7)
 
     @model_validator(mode="after")
