@@ -151,3 +151,25 @@ def test_one_sided_reference_cannot_support_bilateral_observation():
     with pytest.raises(ValueError):response_schema(c).model_validate(payload)
     with pytest.raises(ValueError,match='both compared sides'):
         validate_grounding(CoachingReport.model_validate(payload),c)
+
+
+def test_chronological_sequences_reach_ai_even_without_cycle_approval(tmp_path):
+    import json
+    from pathlib import Path
+    from track_sprint.movement import load_movement_evidence
+    from track_sprint.coaching import build_context
+    from track_sprint.schemas import AthleteProfile
+    source=Path(__file__).resolve().parents[1]/'artifacts/second_demo'
+    if not source.exists():
+        import pytest
+        pytest.skip('Private recording not bundled')
+    summary=json.loads((source/'summary.json').read_text())
+    result=load_movement_evidence(source,summary)
+    assert result['blockers'] and result['sequence_facts']
+    assert result['sequence']['frames']==summary['frames']
+    assert all(len(a)==summary['frame_count'] for a in result['sequence']['angles'].values())
+    assert 'right.sequence_arm' in result['sequence_facts']
+    assert 'left.sequence_arm' not in result['sequence_facts']
+    ctx=build_context(summary,AthleteProfile(),movement=result)
+    assert 'right.sequence_hip' in ctx['facts']
+    assert not any('comparison_group' in f for f in result['sequence_facts'].values())

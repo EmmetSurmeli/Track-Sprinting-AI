@@ -15,3 +15,5 @@ build/
 *.mp4
 *.npz
 
+
+private-notes/

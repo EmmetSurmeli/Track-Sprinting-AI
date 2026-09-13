@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-12.2",
+  "version": "2026-09-12.3",
   "description": "Conservative coaching prompts for discussion with a coach. These are editorial suggestions, not validated corrections for measured angles. No dosage or loading prescriptions.",
   "activities": [
     {
@@ -27,7 +27,7 @@
       "id": "drill-march",
       "kind": "drill",
       "title": "Controlled sprint march",
-      "text": "If familiar and comfortable, use a relaxed march to explore alternating leg positions with your coach. Treat it as coordination practice, not a proven fix for this recording.",
+      "text": "Stand tall and alternate lifting a knee, then place that foot down beneath you. Let your arms alternate naturally. Keep the movement relaxed and comfortable; use it to practise coordination, not to test muscle strength.",
       "topics": [
         "hip",
         "thigh",

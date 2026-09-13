@@ -13,11 +13,27 @@ from .personalization import profile_guidance
 from .contacts import contact_results, load_contact_review
 
 DATA = Path(__file__).parent / "data"
-PROMPT_VERSION = "4.3"
+PROMPT_VERSION = "4.5"
 DEFAULT_MODEL = "gpt-5.6-terra"
 
 INSTRUCTIONS = """Write a useful sprint-video review for a conversation with a coach.
 The input contains computed facts, selected research summaries, and an athlete profile.
+When movement.sequence is supplied, analyze its ordered angle arrays across the whole passage,
+not merely the extrema. Each array aligns with sequence.frames; null means missing tracking.
+Use sequence metric_refs and specific supporting frame_refs for an observed change or pattern.
+Describe in everyday language what the leg or arm actually does, then a concrete practice focus.
+Never write filler such as 'review the knee-bend passage', 'the displayed range shows bending',
+or 'watch the whole stride' as the main finding. If no useful technique finding is supported,
+say that clearly rather than inventing a correction. Do not repeat the same finding for knee and hip.
+Analyze related sequences together: for example, whether the knee is bending or straightening
+while the same thigh moves forward or backward, and whether that pattern repeats. Reference
+both series and frames that actually demonstrate the relationship. A thigh going forward
+and backward is ordinary running, not by itself an actionable technique finding. Do not turn
+that observation alone into a correction or claim that it calls for a drill. If the sequence
+supports only ordinary motion, say that no specific correction is established by this passage.
+You may describe forward/backward rotation or bending/unbending visible in these sequences.
+Without reviewed contact events, do not label any frame touchdown or toe-off, and do not claim
+one leg lags at the other leg's touchdown. Unmatched peaks are not a proven side imbalance.
 Keep the review easy to scan. Lead the overview with the concrete technique feature to review.
 Each explanation should use two to four short sentences: the measured pattern, why to review
 it, and a relevant practice or review action. Put measurement limitations in uncertainty;
@@ -75,8 +91,7 @@ When camera_facing_side_confirmed is false, call the side model-labelled or unco
 Never describe that review as side-confirmed, including in the overview or a recommendation.
 
 The app displays numeric measurements and citations. Do not restate any measurement quantity,
-whether as digits or words, in prose. Event names such as 100 m are allowed. Say 'the displayed
-range' or describe the supported direction of a difference. No URLs, markup or exercise dosage.
+whether as digits or words, in prose. Event names such as 100 m are allowed. Describe the supported movement pattern or direction of a difference. No URLs, markup or exercise dosage.
 No prior-session data is supplied: do not invent change since another day or month. Foot
 placement is available only from selected landing facts. Flight time, stride length, center of
 mass, speed and forces are not measured here.
@@ -163,6 +178,8 @@ def build_context(summary: dict, profile: AthleteProfile, reviewed_contacts=None
         eligible = {}
     if movement and not movement.get("blockers") and summary["quality"] != "insufficient":
         eligible.update(movement.get("facts", {}))
+    if movement and summary["quality"] != "insufficient":
+        eligible.update(movement.get("sequence_facts", {}))
     if reviewed_contacts and reviewed_contacts.get("analysis_id") == summary["analysis_id"]:
         if summary["quality"] != "insufficient":
             eligible.update(reviewed_contacts.get("posture", {}).get("facts", {}))
@@ -195,7 +212,7 @@ def build_context(summary: dict, profile: AthleteProfile, reviewed_contacts=None
         "camera_facing_side_confirmed": summary["config"]["near_side"] != "unknown",
         "warnings": [w for w in summary["warnings"] if not ("roll" in w.lower() and "trunk/thigh" in w.lower())], "facts": eligible,
         "profile": profile.model_dump(), "profile_guidance": guidance, "contact_review": reviewed_contacts,
-        "movement": {k: v for k, v in (movement or {}).items() if k != "facts"},
+        "movement": {k: v for k, v in (movement or {}).items() if k not in ("facts", "sequence_facts")},
         "next_review_required": ("Discuss the existing recording and your current symptoms with your treating professional before deciding on further running."
                                  if guidance["active_symptoms"] else ""),
         "evidence": sources, "activities": activities, "reference_options": options,

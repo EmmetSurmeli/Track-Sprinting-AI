@@ -204,5 +204,25 @@ def movement_evidence(data, summary, review=None, contacts=None):
 
 
 def load_movement_evidence(directory, summary, contacts=None):
-    return movement_evidence(movement_data(directory, summary), summary,
-                             load_review(directory, summary["analysis_id"]), contacts)
+    data = movement_data(directory, summary)
+    evidence = movement_evidence(data, summary, load_review(directory, summary["analysis_id"]), contacts)
+    # Retain the ordered measured motion even when repeated-cycle comparison is
+    # unavailable. Missing samples stay missing; this never creates contact events.
+    evidence["sequence_facts"] = {}
+    if data and summary["quality"] != "insufficient":
+        evidence["sequence"] = {"frames": data["frames"], "angles": {},
+            "scope": "Ordered projected angles at every analyzed frame. No inferred contact phase, force or muscular capacity. Incomplete cycles cannot establish a repeatable imbalance."}
+        for side, item in data["sides"].items():
+            for name, metric in item["metrics"].items():
+                if metric["coverage"] < .85:
+                    continue
+                ref = f"{side}.sequence_{name}"
+                values = metric["values"]
+                evidence["sequence"]["angles"][ref] = [round(v, 1) if v is not None else None for v in values]
+                evidence["sequence_facts"][ref] = {"id": ref, "metric": "arm" if name in ("arm", "elbow") else name,
+                    "side": side, "label": metric["label"], "units": "degrees", "min": metric["min"], "max": metric["max"],
+                    "min_frame": metric["min_frame"], "max_frame": metric["max_frame"], "coverage": metric["coverage"],
+                    "reference_frames": [fid for fid, value in zip(data["frames"], values) if value is not None],
+                    "sampling": "Chronological angle sequence across this passage",
+                    "interpretation": evidence["sequence"]["scope"]}
+    return evidence
