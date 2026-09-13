@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-12.4",
+  "version": "2026-09-12.5",
   "description": "Practical technique cues and coordination drills. Practice choices, not diagnoses or validated corrections for pose angles.",
   "activities": [
     {
@@ -38,22 +38,24 @@
     {
       "id": "exercise-step-up",
       "kind": "exercise",
-      "title": "Controlled step-up",
-      "text": "If already part of your strength routine, use a comfortable step height and keep the movement controlled. This is general strength practice; the video has not identified a weak muscle.",
+      "title": "Bodyweight step-up",
+      "text": "If already familiar and comfortable, step onto a low, stable platform and lower yourself with control. Keep your pelvis level and avoid pushing off hard with the trailing foot. Use your usual qualified supervision; stay with bodyweight rather than adding load.",
       "topics": [
         "hip",
         "knee"
-      ]
+      ],
+      "youth_appropriate": true
     },
     {
       "id": "exercise-squat",
       "kind": "exercise",
-      "title": "Controlled squat",
-      "text": "Use a familiar, comfortable bodyweight squat from your existing routine. Keep the motion controlled. Treat this as general strength practice, not a correction prescribed from an angle.",
+      "title": "Bodyweight squat",
+      "text": "Use a familiar, comfortable bodyweight squat. Sit down and stand smoothly with your feet planted and knees following the direction of your toes. Keep a range you control. Use your usual qualified supervision; this is general strength practice, not an injury treatment.",
       "topics": [
         "hip",
         "knee"
-      ]
+      ],
+      "youth_appropriate": true
     },
     {
       "id": "cue-arm-review",

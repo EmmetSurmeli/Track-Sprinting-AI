@@ -261,12 +261,13 @@ if saved:
     if not cue_ids:
         st.write(report['next_review'])
     st.subheader('Your practice')
-    training = list(dict.fromkeys(i[k] for i in report['observations'] for k in ('drill_id','exercise_id') if i[k]))
-    for ref in training:
-        st.markdown(f"**{acts[ref]['title']}**")
-        st.write(acts[ref]['text'])
+    from track_sprint.coaching import practice_options
+    training = practice_options(report, context)
+    for activity in training:
+        st.markdown(f"**{activity['title']}**")
+        st.write(activity['text'])
     if not training:
-        st.write('Start with the technique focus above. This recording does not support a specific strength program.' if not profile.current_pain and profile.injury_status == 'None reported' else report['next_review'])
+        st.write('No new exercise options are included for this profile. Follow your existing professional guidance.' if not context['activities'] else 'No specific exercise matched the available findings.')
     if report.get('practice_tips'):
         st.markdown('**Put it into practice**')
         for tip in report['practice_tips']:

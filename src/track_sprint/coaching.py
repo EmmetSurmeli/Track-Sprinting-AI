@@ -13,7 +13,7 @@ from .personalization import profile_guidance
 from .contacts import contact_results, load_contact_review
 
 DATA = Path(__file__).parent / "data"
-PROMPT_VERSION = "5.3"
+PROMPT_VERSION = "5.4"
 DEFAULT_MODEL = "gpt-5.6-terra"
 
 INSTRUCTIONS = """You provide direct, practical sprint coaching from measured joint motion and an athlete profile.
@@ -46,6 +46,10 @@ OUTPUT
   and findings. Each should teach execution or a self-check, not repeat the overview.
   Use familiar available drills; don't add unsupported exercises, loading or dosage.
   Return an empty list if no activities are available or the report is limited.
+- For a leg finding, include a relevant drill and an available general bodyweight exercise
+  as options where appropriate. Explain their purpose without calling them a cure. Past
+  injury without current symptoms permits familiar, comfortable options already tolerated;
+  it does not require an empty practice section. Respect injury-context guidance.
 - next_review: a concrete self-check for the chosen practice, such as keeping the march tall
   and the arms alternating. Request a better recording only if a specific missing measurement
   prevents answering the athlete's actual question; it is not the default training advice.
@@ -103,8 +107,7 @@ correction. Do not turn study associations into causal fixes or individual ideal
 Activities are practice choices, not diagnoses. Choose only available catalog IDs with matching
 topics and kinds; use null if none fits. Keep loaded strength work separate from inferred
 weakness, and do not invent dosage, sets, reps, weekly progressions, or a return-to-sport plan.
-Use the event, experience and goal to select a focus. Healthy youth can receive supplied
-coordination drills, not adult elite targets, loading or weight changes. Sex-group research
+Use the event, experience and goal to select a focus. Healthy youth can receive supplied coordination drills and catalog bodyweight exercises under qualified supervision, not adult elite targets, added loading or weight changes. Sex-group research
 does not establish that most high-school girls need more frontside. Height and weight do not
 reveal strength, body composition, limb proportions, or an individual angle target.
 Reported injuries are context, not explanations for a measured difference. With current
@@ -207,7 +210,7 @@ def build_context(summary: dict, profile: AthleteProfile, reviewed_contacts=None
     if not guidance["activities_allowed"]:
         activities = []
     elif guidance["youth"]:
-        activities = [a for a in activities if a["kind"] != "exercise"]
+        activities = [a for a in activities if a["kind"] != "exercise" or a.get("youth_appropriate", False)]
     options = {ref: {"evidence_refs": [s["id"] for s in sources if fact["metric"] in s["topics"]],
                      "frame_refs": sorted(set(fact_frames(fact))) if "min_frame" in fact else [],
                      "activity_ids": [a["id"] for a in activities if fact["metric"] in a["topics"]]}
@@ -416,6 +419,10 @@ def report_markdown(saved):
                 a = activities[ref]
                 lines += ["", f"{kind.title()} — {a['title']}: {a['text']}"]
         lines += [""]
+    options = practice_options(report, context)
+    if options:
+        lines += ["## Practice options", ""]
+        lines += [f"- {a['title']}: {a['text']}" for a in options]
     if report.get("practice_tips"):
         lines += ["## Practice tips", "", *[f"- {tip}" for tip in report["practice_tips"]], ""]
     lines += ["## Practice self-check", "", report["next_review"], "", "## Measurement limits", ""]
@@ -430,3 +437,24 @@ def comparison_text(comparison):
     return (f"{comparison['label']}: {direction}. Left {comparison['left_mean']}, right {comparison['right_mean']} "
             f"{comparison['units']}; left minus right {comparison['left_minus_right']} {comparison['units']}. "
             "Descriptive comparison, not a technique target or strength test.")
+
+
+def practice_options(report, context):
+    """Show relevant catalog options even if the model omits optional activity IDs."""
+    if report['status'] != 'observations' or not context['activities']:
+        return []
+    topics={context['facts'][ref]['metric'] for item in report['observations']
+            for ref in item['metric_refs'] if ref in context['facts']}
+    options={a['id']:a for a in context['activities']
+             if a['kind'] in ('drill','exercise') and topics.intersection(a['topics'])}
+    selected=list(dict.fromkeys(item[k] for item in report['observations']
+                  for k in ('drill_id','exercise_id') if item[k] in options))
+    # A small balanced menu: skill practice, arm coordination, general strength.
+    for ref in ('drill-march','drill-arm-march','exercise-step-up','exercise-squat'):
+        if ref in options and ref not in selected:
+            if options[ref]['kind']=='exercise' and any(options[x]['kind']=='exercise' for x in selected):
+                continue
+            selected.append(ref)
+        if len(selected)>=3:
+            break
+    return [options[ref] for ref in selected[:3]]

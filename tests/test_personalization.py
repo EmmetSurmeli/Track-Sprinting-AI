@@ -51,3 +51,13 @@ def test_height_weight_do_not_change_computed_facts():
     assert a["facts"] == b["facts"]
     assert a["profile"] != b["profile"]
     assert "miller-2024" in {s["id"] for s in a["evidence"]}
+
+
+def test_resolved_history_allows_familiar_practice_but_current_symptoms_do_not():
+    p=AthleteProfile(age_years=17,injury_status='Past injury, no current symptoms',injury_context='Old injury, now symptom-free')
+    assert profile_guidance(p)['activities_allowed']
+    assert 'injury_context' in {r['id'] for r in profile_guidance(p)['rules']}
+    p.current_pain=True
+    assert not profile_guidance(p)['activities_allowed']
+    p.current_pain=False; p.injury_status='Returning with professional guidance'
+    assert not profile_guidance(p)['activities_allowed']

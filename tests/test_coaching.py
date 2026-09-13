@@ -275,7 +275,7 @@ def test_verdict_denial_is_scoped_to_its_clause():
 def test_healthy_youth_gets_coordination_but_no_strength_prescription(summary):
     context = build_context(summary, AthleteProfile(age_years=16))
     assert any(a['kind'] == 'drill' for a in context['activities'])
-    assert all(a['kind'] in ('cue','drill') for a in context['activities'])
+    assert all(a['kind'] in ('cue','drill') or a.get('youth_appropriate') for a in context['activities'])
     assert not build_context(summary, AthleteProfile(age_years=16,current_pain=True))['activities']
 
 
@@ -333,7 +333,19 @@ def test_practice_tips_follow_symptom_and_grounding_rules(summary, valid_report)
     injury_report=valid_report.model_copy(deep=True)
     injury_report.personalization_refs.append('injury_context')
     with pytest.raises(ValueError,match='Practice tips require'):
-        validate_grounding(injury_report,build_context(summary,AthleteProfile(injury_status='Past injury, no current symptoms')))
+        validate_grounding(injury_report,build_context(summary,AthleteProfile(injury_region='Hamstring')))
     valid_report.practice_tips=['Do 10 reps.']
     with pytest.raises(ValueError,match='Numeric prose'):
         validate_grounding(valid_report,build_context(summary,AthleteProfile()))
+
+
+def test_practice_menu_fills_missing_model_options_without_bypassing_profile(summary,valid_report):
+    from track_sprint.coaching import practice_options
+    valid_report.observations[0].cue_id=None
+    profile=AthleteProfile(age_years=17,injury_status='Past injury, no current symptoms')
+    options=practice_options(valid_report.model_dump(),build_context(summary,profile))
+    assert 2 <= len(options) <= 3
+    assert any(a['kind']=='drill' for a in options)
+    assert any(a['kind']=='exercise' and a.get('youth_appropriate') for a in options)
+    profile.current_pain=True
+    assert practice_options(valid_report.model_dump(),build_context(summary,profile)) == []
