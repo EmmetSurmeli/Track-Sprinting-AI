@@ -25,7 +25,7 @@ from track_sprint.contact_ui import show_contacts
 from track_sprint.frame_viewer import show_frame_viewer
 from track_sprint.history import HistoryStore
 from track_sprint.movement_ui import show_movement
-from track_sprint.coaching import CoachingError, DEFAULT_MODEL, PROMPT_VERSION, generate_report, library, report_markdown, comparison_text
+from track_sprint.coaching import CoachingError, DEFAULT_MODEL, PROMPT_VERSION, generate_report, library, report_markdown, comparison_text, practice_options
 from track_sprint.pipeline import PIPELINE_VERSION, load_analysis
 from track_sprint.schemas import AnalysisConfig
 from track_sprint.video import VideoError, inspect_video
@@ -261,7 +261,6 @@ if saved:
     if not cue_ids:
         st.write(report['next_review'])
     st.subheader('Your practice')
-    from track_sprint.coaching import practice_options
     training = practice_options(report, context)
     for activity in training:
         st.markdown(f"**{activity['title']}**")
