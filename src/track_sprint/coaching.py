@@ -13,11 +13,20 @@ from .personalization import profile_guidance
 from .contacts import contact_results, load_contact_review
 
 DATA = Path(__file__).parent / "data"
-PROMPT_VERSION = "4.5"
+PROMPT_VERSION = "4.7"
 DEFAULT_MODEL = "gpt-5.6-terra"
 
 INSTRUCTIONS = """Write a useful sprint-video review for a conversation with a coach.
 The input contains computed facts, selected research summaries, and an athlete profile.
+Comparison blockers apply only to claims about repeatable bilateral imbalance, not to all
+technique observations. Unchecked review boxes are NOT evidence of poor tracking. When quality
+is usable and sequence data exists, describe supported within-passage joint coordination even
+if complete bilateral cycles have not been reviewed. Do not dismiss that data as unusable.
+Use movement.sequence.key_positions to relate simultaneous knee, thigh and arm positions,
+and check the ordered arrays before describing what happens between them. Cite the related
+metrics together in the same observation. Explain the observable action in ordinary language,
+then distinguish a practice focus from a diagnosed fault. A useful review can describe a
+normal coordination pattern and relevant practice without claiming that it needs correction.
 When movement.sequence is supplied, analyze its ordered angle arrays across the whole passage,
 not merely the extrema. Each array aligns with sequence.frames; null means missing tracking.
 Use sequence metric_refs and specific supporting frame_refs for an observed change or pattern.
@@ -27,15 +36,13 @@ or 'watch the whole stride' as the main finding. If no useful technique finding 
 say that clearly rather than inventing a correction. Do not repeat the same finding for knee and hip.
 Analyze related sequences together: for example, whether the knee is bending or straightening
 while the same thigh moves forward or backward, and whether that pattern repeats. Reference
-both series and frames that actually demonstrate the relationship. A thigh going forward
-and backward is ordinary running, not by itself an actionable technique finding. Do not turn
-that observation alone into a correction or claim that it calls for a drill. If the sequence
-supports only ordinary motion, say that no specific correction is established by this passage.
+both series and frames that actually demonstrate the relationship. A thigh going forward and backward alone is not a useful finding: explain how knee bending and straightening relate to its position, where supported. Do not label ordinary movement faulty.
 You may describe forward/backward rotation or bending/unbending visible in these sequences.
 Without reviewed contact events, do not label any frame touchdown or toe-off, and do not claim
 one leg lags at the other leg's touchdown. Unmatched peaks are not a proven side imbalance.
 Keep the review easy to scan. Lead the overview with the concrete technique feature to review.
-Each explanation should use two to four short sentences: the measured pattern, why to review
+Avoid technical filler such as key position, passage, selected straighter position, and coordination question. Say what your thigh, knee or arm does. Keep research-method discussion in uncertainty, not the coaching explanation.
+Each explanation should use two to three short sentences: the measured pattern, why to review
 it, and a relevant practice or review action. Put measurement limitations in uncertainty;
 do not repeat a catalogue of unmeasured variables in the overview, explanation and uncertainty.
 Detailed study population and method notes already appear beside the linked citations. When
@@ -142,7 +149,7 @@ def response_schema(context):
     grouped = {}
     for ref in fact_ids:
         fact = context["facts"][ref]
-        group = fact.get("comparison_group", fact.get("observation_group", "contacts" if fact["metric"] == "contact_time" else ref))
+        group = fact.get("comparison_group", fact.get("observation_group", fact.get("motion_group", "contacts" if fact["metric"] == "contact_time" else ref)))
         grouped.setdefault(group, []).append(ref)
     groups = list(grouped.values())
     variants = []
@@ -151,7 +158,7 @@ def response_schema(context):
         sources = [s["id"] for s in context["evidence"] if topics.intersection(s["topics"])]
         frames = [fid for ref in refs for fid in fact_frames(context["facts"][ref])]
         fields = {
-            "metric_refs": (list[choices(refs)], Field(min_length=len(refs) if any(context["facts"][refs[0]].get(k) for k in ("comparison_group", "observation_group")) else 1, max_length=len(refs))),
+            "metric_refs": (list[choices(refs)], Field(min_length=len(refs) if any(context["facts"][refs[0]].get(k) for k in ("comparison_group", "observation_group")) else 1, max_length=min(3, len(refs)))),
             "evidence_refs": (list[choices(sources)], Field(min_length=1, max_length=3)),
             "frame_refs": (list[choices(frames)], Field(min_length=1, max_length=3)),
         }

@@ -173,3 +173,25 @@ def test_chronological_sequences_reach_ai_even_without_cycle_approval(tmp_path):
     ctx=build_context(summary,AthleteProfile(),movement=result)
     assert 'right.sequence_hip' in ctx['facts']
     assert not any('comparison_group' in f for f in result['sequence_facts'].values())
+
+
+def test_sequence_schema_can_combine_knee_and_thigh_without_requiring_arms():
+    from track_sprint.coaching import validate_grounding
+    from track_sprint.schemas import CoachingReport
+    d,s,r=synthetic_movement()
+    facts={}
+    for name in ('hip','knee','arm','elbow'):
+        ref=f'right.sequence_{name}'
+        facts[ref]={'id':ref,'metric':'arm' if name in ('arm','elbow') else name,
+            'motion_group':'right.motion','side':'right','label':name,'units':'degrees',
+            'min':10,'max':70,'min_frame':25,'max_frame':75,'reference_frames':[25,75],
+            'coverage':1.0}
+    c=build_context(s,AthleteProfile(),movement={'blockers':['Cycles not reviewed'], 'sequence_facts':facts})
+    payload={'status':'observations','overview':'Your knee unfolds as your thigh comes back.',
+        'observations':[{'title':'Leg coordination','metric_refs':['right.sequence_hip','right.sequence_knee'],
+         'frame_refs':[25,75],'evidence_refs':['clark-2020'],'explanation':'Your knee straightens while the thigh moves backward.',
+         'uncertainty':'Projected movement does not establish contact timing.','cue_id':'cue-whole-stride','drill_id':None,'exercise_id':None}],
+        'next_review':'Follow the leg motion across the source frames.','personalization':'Your goal focuses the review on thigh movement.',
+        'personalization_refs':['goal']}
+    parsed=response_schema(c).model_validate(payload)
+    validate_grounding(CoachingReport.model_validate(parsed.model_dump()),c)

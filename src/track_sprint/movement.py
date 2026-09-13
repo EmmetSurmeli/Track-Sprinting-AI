@@ -220,9 +220,26 @@ def load_movement_evidence(directory, summary, contacts=None):
                 values = metric["values"]
                 evidence["sequence"]["angles"][ref] = [round(v, 1) if v is not None else None for v in values]
                 evidence["sequence_facts"][ref] = {"id": ref, "metric": "arm" if name in ("arm", "elbow") else name,
-                    "side": side, "label": metric["label"], "units": "degrees", "min": metric["min"], "max": metric["max"],
+                    "side": side, "motion_group": f"{side}.motion", "label": metric["label"], "units": "degrees", "min": metric["min"], "max": metric["max"],
                     "min_frame": metric["min_frame"], "max_frame": metric["max_frame"], "coverage": metric["coverage"],
                     "reference_frames": [fid for fid, value in zip(data["frames"], values) if value is not None],
                     "sampling": "Chronological angle sequence across this passage",
                     "interpretation": evidence["sequence"]["scope"]}
+    if evidence.get("sequence_facts"):
+        evidence["sequence"]["key_positions"] = []
+        for side, item in data["sides"].items():
+            # Explain joint coordination using the same source frames. These are
+            # geometric extrema, not contact events or automatically scored faults.
+            for name in ("hip", "knee"):
+                ref = f"{side}.sequence_{name}"
+                if ref not in evidence["sequence_facts"]:
+                    continue
+                for kind in ("min", "max"):
+                    frame = item["metrics"][name][f"{kind}_frame"]
+                    i = data["frames"].index(frame)
+                    evidence["sequence"]["key_positions"].append({
+                        "side": side, "frame": frame, "selection": f"{name} passage {kind}",
+                        "angles": {f"{side}.sequence_{k}": v["values"][i]
+                                   for k, v in item["metrics"].items()
+                                   if f"{side}.sequence_{k}" in evidence["sequence_facts"]}})
     return evidence

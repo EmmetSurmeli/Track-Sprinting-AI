@@ -251,7 +251,7 @@ if saved:
         st.markdown(f"**{item['title']}**")
         st.write(item['explanation'])
     if not report['observations']:
-        st.write('This passage needs clearer tracking before a technique finding can be made.')
+        st.write('The measurements are available, but this report did not identify a supported technique finding.')
     st.subheader('Your focus')
     cue_ids = list(dict.fromkeys(i['cue_id'] for i in report['observations'] if i['cue_id']))
     for ref in cue_ids:
