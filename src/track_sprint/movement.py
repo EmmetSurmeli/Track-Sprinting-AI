@@ -211,6 +211,10 @@ def load_movement_evidence(directory, summary, contacts=None):
     evidence["sequence_facts"] = {}
     if data and summary["quality"] != "insufficient":
         evidence["sequence"] = {"frames": data["frames"], "angles": {},
+            "angle_definitions": {"knee": "Flexion from straight: zero is straight; higher is more bent.",
+                                  "elbow": "Flexion from straight: zero is straight; higher is more bent, lower is more open.",
+                                  "hip": "Signed thigh relative to trunk: positive forward, negative rearward.",
+                                  "arm": "Signed upper arm relative to trunk: positive forward, negative rearward."},
             "scope": "Ordered projected angles at every analyzed frame. No inferred contact phase, force or muscular capacity. Incomplete cycles cannot establish a repeatable imbalance."}
         for side, item in data["sides"].items():
             for name, metric in item["metrics"].items():

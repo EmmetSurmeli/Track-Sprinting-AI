@@ -46,7 +46,7 @@ class Observation(StrictModel):
     metric_refs: list[str] = Field(min_length=1, max_length=3)
     frame_refs: list[int] = Field(min_length=1, max_length=3)
     evidence_refs: list[str] = Field(min_length=1, max_length=3)
-    explanation: str = Field(max_length=900)
+    explanation: str = Field(max_length=1400)
     uncertainty: str = Field(max_length=500)
     cue_id: str | None
     drill_id: str | None
@@ -57,6 +57,7 @@ class CoachingReport(StrictModel):
     status: Literal["observations", "limited"]
     overview: str = Field(max_length=600)
     observations: list[Observation] = Field(max_length=3)
+    practice_tips: list[str] = Field(default_factory=list, max_length=3)
     next_review: str = Field(max_length=500)
     personalization: str = Field(min_length=1, max_length=1200)
     personalization_refs: list[str] = Field(min_length=1, max_length=7)

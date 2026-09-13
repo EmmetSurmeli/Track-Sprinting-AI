@@ -267,6 +267,10 @@ if saved:
         st.write(acts[ref]['text'])
     if not training:
         st.write('Start with the technique focus above. This recording does not support a specific strength program.' if not profile.current_pain and profile.injury_status == 'None reported' else report['next_review'])
+    if report.get('practice_tips'):
+        st.markdown('**Put it into practice**')
+        for tip in report['practice_tips']:
+            st.write(f'• {tip}')
     with st.expander('Why this feedback? Measurements & sources'):
         if contacts.get('posture', {}).get('available'):
             st.caption(contacts['posture']['review']['provenance'])

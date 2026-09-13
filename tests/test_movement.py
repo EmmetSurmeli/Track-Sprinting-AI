@@ -195,3 +195,16 @@ def test_sequence_schema_can_combine_knee_and_thigh_without_requiring_arms():
         'personalization_refs':['goal']}
     parsed=response_schema(c).model_validate(payload)
     validate_grounding(CoachingReport.model_validate(parsed.model_dump()),c)
+
+
+def test_elbow_flexion_zero_is_straight_and_larger_is_more_bent():
+    points=np.ones((33,4)); points[:,:2]=.5
+    points[[11,13,15,23],:2]=[[.5,.3],[.7,.3],[.9,.3],[.5,.6]]
+    straight=arm_metrics(points,'left',1000,1000,'right',.7)['elbow']
+    points[15,:2]=[.7,.1]
+    square=arm_metrics(points,'left',1000,1000,'right',.7)['elbow']
+    points[15,:2]=[.6,.31]
+    folded=arm_metrics(points,'left',1000,1000,'right',.7)['elbow']
+    assert straight == pytest.approx(0)
+    assert square == pytest.approx(90)
+    assert square < folded < 180

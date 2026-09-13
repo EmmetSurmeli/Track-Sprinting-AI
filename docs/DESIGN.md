@@ -80,7 +80,7 @@ The calendar supports month/year navigation, multiple analyses on one date, date
 
 Before broadening features: obtain a real API report, manually validate a small annotation set, and test a second standardized clip and a deliberate poor-view clip. Then improve manual camera-side confirmation, athlete selection, exported visual review summaries and video synchronization. A real hosted product would require an upload worker queue, authentication, durable job storage, operational monitoring, stronger abuse/resource limits, privacy policy and wider device/video testing. Those are future work, not claims about this local MVP.
 
-**Movement evidence:** `movement.py` adds locally derived arm angles and review-gated bilateral geometric-cycle statistics. `movement_ui.py` exposes coverage, boundaries and review conditions. Prompt 5.1 receives eligible comparisons and explicit blockers; no unreviewed interval difference becomes an athlete asymmetry.
+**Movement evidence:** `movement.py` adds locally derived arm angles and review-gated bilateral geometric-cycle statistics. `movement_ui.py` exposes coverage, boundaries and review conditions. Prompt 5.3 receives eligible comparisons and explicit blockers; no unreviewed interval difference becomes an athlete asymmetry.
 
 Ordered high-coverage leg and arm angle sequences are supplied for the whole analyzed passage, even when repeated-cycle comparisons are unavailable. Sequence facts retain supporting source-frame IDs and missing values. This enables movement interpretation without promoting unreviewed frames to contact events.
 

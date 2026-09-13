@@ -204,7 +204,7 @@ def test_valid_generation_cached_without_key_or_profile_on_disk(tmp_path, summar
     profile = AthleteProfile(goal="A private test goal")
     saved, cached = generate_report(summary, profile, "synthetic-test-key", tmp_path, client=client)
     assert not cached and len(calls) == 1
-    assert calls[0]["store"] is False and calls[0]["max_output_tokens"] == 2500
+    assert calls[0]["store"] is False and calls[0]["max_output_tokens"] == 3200
     disk = next((tmp_path / "reports").glob("*.json")).read_text()
     assert "synthetic-test-key" not in disk and "A private test goal" not in disk
     _, cached = generate_report(summary, profile, "", tmp_path, client=client)
@@ -295,3 +295,45 @@ def test_rather_than_targets_and_diagnosis():
     assert unsupported_phrase('Focus on review rather than exact ideal angles.') is None
     assert unsupported_phrase('Use a whole-stride check rather than ideal positions or a diagnosis.') is None
     assert unsupported_phrase('Rather than ideal positions, your diagnosis is muscle weakness.')
+
+
+@pytest.mark.parametrize('clip', ['demo', 'second_demo'])
+def test_real_tracking_and_profile_reach_request_boundary(clip):
+    from pathlib import Path
+    from track_sprint.movement import load_movement_evidence
+    directory=Path(__file__).resolve().parents[1]/'artifacts'/clip
+    if not (directory/'landmarks.npz').exists():
+        pytest.skip('Private recording not bundled')
+    summary=json.loads((directory/'summary.json').read_text())
+    profile=AthleteProfile(goal='Verify complete motion and profile request boundary',
+                           age_years=17,height_cm=175,weight_kg=65,event='200 m')
+    expected=load_movement_evidence(directory,summary)['sequence']
+    captured=[]
+    class RequestCaptured(Exception): pass
+    def parse(**kwargs):
+        payload=json.loads(kwargs['input'])
+        captured.append(payload)
+        assert payload['profile']==profile.model_dump()
+        assert payload['movement']['sequence']==expected
+        assert len(payload['movement']['sequence']['frames'])==summary['frame_count']
+        assert any(ref.endswith('sequence_knee') for ref in payload['facts'])
+        assert any(ref.endswith('sequence_arm') for ref in payload['facts'])
+        assert kwargs['store'] is False
+        assert 'synthetic-test-key' not in kwargs['input']
+        raise RequestCaptured()
+    with pytest.raises(RequestCaptured):
+        generate_report(summary,profile,'synthetic-test-key',directory,
+                        client=SimpleNamespace(responses=SimpleNamespace(parse=parse)))
+    assert len(captured)==1
+
+
+def test_practice_tips_follow_symptom_and_grounding_rules(summary, valid_report):
+    valid_report.practice_tips=['Keep your hands loose while the opposite arm follows the knee lift.']
+    validate_grounding(valid_report,build_context(summary,AthleteProfile()))
+    injury_report=valid_report.model_copy(deep=True)
+    injury_report.personalization_refs.append('injury_context')
+    with pytest.raises(ValueError,match='Practice tips require'):
+        validate_grounding(injury_report,build_context(summary,AthleteProfile(injury_status='Past injury, no current symptoms')))
+    valid_report.practice_tips=['Do 10 reps.']
+    with pytest.raises(ValueError,match='Numeric prose'):
+        validate_grounding(valid_report,build_context(summary,AthleteProfile()))
