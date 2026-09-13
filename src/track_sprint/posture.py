@@ -9,7 +9,7 @@ import numpy as np
 from pydantic import Field
 from typing import Literal
 
-from .artifacts import read_json
+from .artifacts import read_json, write_json
 from .metrics import angle
 from .schemas import StrictModel
 
@@ -77,3 +77,40 @@ def posture_evidence(directory, summary, review=None):
             "coverage": 1.0, "count": 1, "sampling": "Selected landing frame; unsmoothed accepted landmarks",
             "interpretation": result["scope"] + " " + result["limitations"]}
     return result
+
+
+def reuse_posture_review(directory, summary, archive_root):
+    """Carry a reviewed source-frame annotation across trims of the identical video.
+
+    Does not create an event label, search for a landing, or copy contact timing.
+    Existing reviews always win. New tracking must support the selected geometry.
+    """
+    directory, archive_root = Path(directory), Path(archive_root)
+    if (directory / "posture_review.json").exists() or summary["quality"] == "insufficient":
+        return False
+    digest = summary.get("video", {}).get("sha256")
+    if not digest:
+        return False
+    for path in sorted(archive_root.glob("*/posture_review.json")):
+        try:
+            prior = read_json(path.parent / "summary.json")
+            review = PostureReview.model_validate(read_json(path))
+            if (prior.get("video", {}).get("sha256") != digest
+                    or review.analysis_id != prior["analysis_id"] or not review.geometry_checked
+                    or review.frame not in summary["frames"] or review.frame not in prior["frames"]
+                    or prior["analysis_dimensions"] != summary["analysis_dimensions"]
+                    or prior["config"]["direction"] != summary["config"]["direction"]):
+                continue
+            old_time = prior["times"][prior["frames"].index(review.frame)]
+            new_time = summary["times"][summary["frames"].index(review.frame)]
+            if not np.isclose(old_time, new_time, rtol=0, atol=1e-6):
+                continue
+            transferred = review.model_copy(update={"analysis_id": summary["analysis_id"],
+                "provenance": f"Reused source-frame annotation from analysis {prior['analysis_id']}. Original: {review.provenance}"[:300]})
+            if not posture_evidence(directory, summary, transferred)["available"]:
+                continue
+            write_json(directory / "posture_review.json", transferred.model_dump())
+            return True
+        except (OSError, ValueError, KeyError):
+            continue
+    return False

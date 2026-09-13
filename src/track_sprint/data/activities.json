@@ -1,12 +1,12 @@
 {
-  "version": "2026-09-12.3",
-  "description": "Conservative coaching prompts for discussion with a coach. These are editorial suggestions, not validated corrections for measured angles. No dosage or loading prescriptions.",
+  "version": "2026-09-12.4",
+  "description": "Practical technique cues and coordination drills. Practice choices, not diagnoses or validated corrections for pose angles.",
   "activities": [
     {
       "id": "cue-whole-stride",
       "kind": "cue",
-      "title": "Watch the whole stride",
-      "text": "Review the thigh moving forward and returning beneath the body across consecutive frames. Avoid changing your technique to match a single still image.",
+      "title": "Fold, bring through, step down",
+      "text": "Let the knee fold as the thigh comes forward, then bring the foot down beneath you. Practise the connected action without deliberately stretching the foot farther ahead.",
       "topics": [
         "thigh",
         "hip",
@@ -16,8 +16,8 @@
     {
       "id": "cue-relaxed-posture",
       "kind": "cue",
-      "title": "Review posture with your coach",
-      "text": "Compare the shoulder-to-hip line across the passage. Ask your coach whether the view is sufficiently side-on before discussing a posture change.",
+      "title": "Stay tall without stiffening",
+      "text": "Keep your head comfortably over your trunk. Let your shoulders stay relaxed as your arms alternate; avoid leaning backward to lift the knee.",
       "topics": [
         "trunk",
         "hip"
@@ -26,8 +26,8 @@
     {
       "id": "drill-march",
       "kind": "drill",
-      "title": "Controlled sprint march",
-      "text": "Stand tall and alternate lifting a knee, then place that foot down beneath you. Let your arms alternate naturally. Keep the movement relaxed and comfortable; use it to practise coordination, not to test muscle strength.",
+      "title": "Sprint march",
+      "text": "Stand tall and alternate lifting a knee while the opposite arm comes forward. Let the knee fold naturally, then place the foot down beneath you. Keep the motion comfortable; slow down if your trunk starts rocking.",
       "topics": [
         "hip",
         "thigh",
@@ -38,8 +38,8 @@
     {
       "id": "exercise-step-up",
       "kind": "exercise",
-      "title": "Discuss step-ups",
-      "text": "Ask your coach whether a comfortable, controlled step-up belongs in your existing strength plan. This suggestion does not indicate a weak muscle or specify a load.",
+      "title": "Controlled step-up",
+      "text": "If already part of your strength routine, use a comfortable step height and keep the movement controlled. This is general strength practice; the video has not identified a weak muscle.",
       "topics": [
         "hip",
         "knee"
@@ -48,8 +48,8 @@
     {
       "id": "exercise-squat",
       "kind": "exercise",
-      "title": "Discuss squat practice",
-      "text": "Ask your coach whether familiar, comfortable squat practice belongs in your existing training. Video angles alone cannot determine exercise selection, loading, or readiness.",
+      "title": "Controlled squat",
+      "text": "Use a familiar, comfortable bodyweight squat from your existing routine. Keep the motion controlled. Treat this as general strength practice, not a correction prescribed from an angle.",
       "topics": [
         "hip",
         "knee"
@@ -58,8 +58,8 @@
     {
       "id": "cue-arm-review",
       "kind": "cue",
-      "title": "Compare arm motion over complete strides",
-      "text": "Review shoulder, elbow and wrist visibility on each side through the same part of several strides. Discuss whether a repeatable arm pattern remains with a consistent camera view before choosing technique practice.",
+      "title": "Let your arms alternate",
+      "text": "Let the arm opposite the forward leg come forward. Keep your hands loose and allow the elbows to bend and open naturally instead of locking them into a fixed angle.",
       "topics": [
         "arm"
       ]
@@ -67,9 +67,32 @@
     {
       "id": "cue-landing-review",
       "kind": "cue",
-      "title": "Review reaching into the landing",
-      "text": "Follow the ankle and hip through the approach to landing. If reaching forward is repeatable, discuss a relaxed step-down cue with your coach rather than trying to stretch the foot farther in front. Do not force the foot behind your hips or chase a still-frame target.",
+      "title": "Step down without reaching",
+      "text": "Think about bringing the foot down beneath you rather than stretching it forward for a longer step. Do not deliberately force it behind your hips.",
       "topics": [
+        "touchdown_position"
+      ]
+    },
+    {
+      "id": "drill-arm-march",
+      "kind": "drill",
+      "title": "Alternating arm march",
+      "text": "March comfortably in place with the opposite arm coming forward as each knee rises. Keep your hands loose and let your elbows change angle naturally. Slow down if you lose the alternating rhythm.",
+      "topics": [
+        "arm",
+        "hip",
+        "knee"
+      ]
+    },
+    {
+      "id": "drill-a-skip",
+      "kind": "drill",
+      "title": "Easy A-skip",
+      "text": "If A-skips are already familiar, use a gentle skipping rhythm with alternating knee lift and opposite-arm action. Stay tall and bring the foot down beneath you. Start with the sprint march if the rhythm feels awkward; keep this easy rather than trying for height or speed.",
+      "topics": [
+        "hip",
+        "knee",
+        "arm",
         "touchdown_position"
       ]
     }

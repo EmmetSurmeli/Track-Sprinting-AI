@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-11.4",
+  "version": "2026-09-12.5",
   "description": "Manually reviewed research summaries, not quotations. These studies do not validate this app or establish ideal sprint angles.",
   "sources": [
     {
@@ -318,6 +318,25 @@
       "limitations": "The experiment does not provide an ideal elbow angle, diagnose a weak side, quantify this athlete's arm power or establish that correcting a small observed asymmetry improves performance. Current arm measurements are projected estimates and need visibility checks.",
       "topics": [
         "arm"
+      ]
+    },
+    {
+      "id": "banta-2025-drills",
+      "title": "The Art of Sprint Drills for Improving Sprint Mechanics",
+      "authors": "Ryan Banta",
+      "year": 2025,
+      "url": "https://trackandfieldnews.com/track-coach/the-art-of-sprint-drills-for-improving-sprint-mechanics/",
+      "doi": "",
+      "type": "First-person coaching article, not an intervention trial",
+      "location": "Front-Side Mechanics; A Run",
+      "population": "Developmental sprint coaching; practice guidance, not a measured study sample.",
+      "summary": "Build sprint-drill skills from familiar simple movements before increasing complexity. Teach basic prerequisites before A-skips. Emphasize upright, coordinated motion and practise technique while fresh.",
+      "limitations": "Coaching judgment, not proof that these drills fix a measured angle, muscle weakness, injury, or speed deficit. Does not validate this app or supply individual targets.",
+      "topics": [
+        "hip",
+        "knee",
+        "arm",
+        "touchdown_position"
       ]
     }
   ]

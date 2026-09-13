@@ -100,7 +100,7 @@ from track_sprint.profile_setup import load_profile, show_profile_setup
 from track_sprint.analysis_cache import find_cached_analysis
 from track_sprint.contacts import contact_results, load_contact_review
 from track_sprint.movement import load_movement_evidence
-from track_sprint.posture import posture_evidence
+from track_sprint.posture import posture_evidence, reuse_posture_review
 
 PROFILE_PATH = Path(os.environ.get('TRACK_SPRINT_PROFILE_PATH', str(ROOT/'artifacts'/'profile.json')))
 CACHE = ROOT/'artifacts'/'cache'/'analyses'
@@ -213,6 +213,7 @@ if not st.session_state.get('analysis_dir'):
 
 directory = Path(st.session_state.analysis_dir)
 summary, series = load_analysis(directory)
+reuse_posture_review(directory, summary, history.root/"analyses")
 if message := st.session_state.pop('log_save_error', None):
     st.warning(message)
 if st.session_state.get('analysis_reused'):
@@ -259,7 +260,7 @@ if saved:
         st.write(acts[ref]['text'])
     if not cue_ids:
         st.write(report['next_review'])
-    st.subheader('Training to discuss')
+    st.subheader('Your practice')
     training = list(dict.fromkeys(i[k] for i in report['observations'] for k in ('drill_id','exercise_id') if i[k]))
     for ref in training:
         st.markdown(f"**{acts[ref]['title']}**")
@@ -267,6 +268,8 @@ if saved:
     if not training:
         st.write('Start with the technique focus above. This recording does not support a specific strength program.' if not profile.current_pain and profile.injury_status == 'None reported' else report['next_review'])
     with st.expander('Why this feedback? Measurements & sources'):
+        if contacts.get('posture', {}).get('available'):
+            st.caption(contacts['posture']['review']['provenance'])
         st.write(report['personalization'])
         sources = {s['id']:s for s in context['evidence']}
         for n, item in enumerate(report['observations']):

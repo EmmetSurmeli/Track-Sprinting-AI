@@ -70,3 +70,28 @@ def test_posture_reaches_ai_without_inventing_contact_timing(tmp_path):
     poor = deepcopy(s); poor['quality'] = 'insufficient'
     assert not posture_evidence(tmp_path, poor)['facts']
     assert not build_context(poor, AthleteProfile(), contacts)['facts']
+
+@pytest.mark.parametrize('mismatch', [None, 'video', 'frame', 'time', 'direction', 'tracking'])
+def test_landing_annotation_reuse_requires_same_source_geometry(tmp_path, mismatch):
+    from track_sprint.posture import reuse_posture_review
+    old=tmp_path/'archive'/'old'; old.mkdir(parents=True)
+    _, prior, review=fixture(old)
+    prior['video']={'sha256':'same-video'}
+    write_json(old/'summary.json',prior)
+    write_json(old/'posture_review.json',review.model_dump())
+    new=tmp_path/'new'; new.mkdir()
+    points, current, _=fixture(new)
+    current.update(analysis_id='new-analysis',video={'sha256':'same-video'})
+    if mismatch=='video': current['video']['sha256']='other-video'
+    if mismatch=='frame': current['frames']=[101]
+    if mismatch=='time': current['times']=[1.0]
+    if mismatch=='direction': current['config']['direction']='left'
+    if mismatch=='tracking':
+        points[28,2]=.1
+        np.savez(new/'landmarks.npz',accepted=[points],frame_ids=[100])
+    assert reuse_posture_review(new,current,tmp_path/'archive') == (mismatch is None)
+    if mismatch is None:
+        evidence=posture_evidence(new,current)
+        assert evidence['available'] and 'Reused source-frame annotation' in evidence['review']['provenance']
+        assert evidence['review']['analysis_id']=='new-analysis'
+        assert not reuse_posture_review(new,current,tmp_path/'archive')  # No overwriting.
