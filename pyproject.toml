@@ -27,4 +27,5 @@ track_sprint = ["data/*.json", "viewer/*.html", "viewer/*.css", "viewer/*.js"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 
-[tool.vercel] entrypoint = "scripts.smoke_app:app"
+[tool.vercel] 
+entrypoint = "scripts.smoke_app:app"
